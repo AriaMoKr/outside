@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "outside",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve.mjs", "--port", "8090"],
+      "port": 8090
+    },
+    {
+      "name": "hallway",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["../hallway/tools/serve.mjs", "--port", "8088"],
+      "port": 8088
+    },
+    {
+      "name": "outside-quest",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve.mjs", "--host", "127.0.0.1", "--port", "8091"],
+      "port": 8091
+    }
+  ]
+}

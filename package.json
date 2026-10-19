@@ -1,0 +1,33 @@
+{
+  "name": "outside",
+  "version": "0.1.0",
+  "description": "A small WebXR garden outside one of the hallway's doors: a lawn, a stream and a pond, a foot bridge, and a bench to sit and read on. In VR, on a desktop or on a phone.",
+  "keywords": ["webxr", "virtual-reality", "threejs", "meta-quest", "garden"],
+  "homepage": "https://ariamokr.github.io/outside/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AriaMoKr/outside.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AriaMoKr/outside/issues"
+  },
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "postinstall": "node tools/vendor.mjs",
+    "start": "node tools/serve.mjs",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "layersharedsession": "github:AriaMoKr/layersharedsession#c6420409f1e742a1cfaf30646106812f666bca2b",
+    "three": "0.186.1",
+    "trystero": "0.26.0"
+  },
+  "devDependencies": {
+    "iwer": "^2.5.0"
+  }
+}
