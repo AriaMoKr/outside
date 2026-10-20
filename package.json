@@ -15,7 +15,7 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "postinstall": "node tools/vendor.mjs",

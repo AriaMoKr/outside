@@ -119,6 +119,8 @@ here count as elsewhere.
 
 ## Running it
 
+You need Node.js 22 or newer.
+
 ```bash
 npm install     # three.js, the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/
 npm start       # http://localhost:8090/
@@ -145,7 +147,7 @@ this site's copy of the view rather than the hallway's.
 Two pictures are rendered in headless Chrome and committed:
 
 ```bash
-node tools/preview.mjs        # public/hallway-preview.jpg: the garden, for the hallway's doorway here
+node tools/preview.mjs        # public/hallway-preview.jpg: the garden, for the hallway's doorway here and a shared link's preview
 node tools/hallway-view.mjs   # public/views/: the hall, for the doorway back (needs an installed hallway checkout; --hallway <path>, default ../hallway)
 ```
 

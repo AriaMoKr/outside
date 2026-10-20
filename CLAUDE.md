@@ -26,7 +26,7 @@ node tools/preview.mjs       # public/hallway-preview.jpg, the garden for the ha
 node tools/hallway-view.mjs  # public/views/, the hall seen out of its door to here, from a copy of ../hallway with the door added
 ```
 
-Node runs under MSYS2 UCRT64 here (`MSYSTEM=UCRT64 /c/msys64/usr/bin/bash -lc 'cd /c/git/my/claude/outside && …'`).
+Node 22 or newer (`engines`, and what CI uses; `tools/lib/chrome.mjs` needs its built-in WebSocket). It runs under MSYS2 UCRT64 here (`MSYSTEM=UCRT64 /c/msys64/usr/bin/bash -lc 'cd /c/git/my/claude/outside && …'`).
 
 ## Layout
 
@@ -46,3 +46,5 @@ Node runs under MSYS2 UCRT64 here (`MSYSTEM=UCRT64 /c/msys64/usr/bin/bash -lc 'c
 - Scripted testing: `window.__outside` (renderer, scene, camera, rig, garden, layout, controls, overlay, fade, book, way, visit, `go`, `enterVR`, `openBook`, `closeBook`, `preview()`, `tick(dt, n)`, `xrDevice`, together). A hidden browser pane gets no animation frames: drive it with `tick()`, and render one before a screenshot (otherwise it shows a stale frame). XR frames under `?xr=emulate` need the pane's tab in front (`tabs_select`); aim with `xrDevice.controllers.right.position/quaternion` (rig-local), `updateButtonValue('trigger', 1)`, `updateAxes('thumbstick', x, y)`. A gamepad: replace `navigator.getGamepads` and dispatch `gamepadconnected`, as in the hallway.
 - `.claude/launch.json`: `outside` (8090), `outside-quest` (127.0.0.1:8091), and `hallway` (../hallway on 8088) for trying the door both ways.
 - Headless Chrome (`tools/lib/chrome.mjs`, Breadboard's) writes the fresh profile's `Local State` first so Windows sees no failed logon; keep that if it changes.
+- Code shared with other repos, until it moves into a shared one: `public/js/fade.js`, `gamepad.js`, `settings.js`, `test/gamepad.test.js`, `test/settings.test.js` and `tools/vendor.mjs` are byte for byte the hallway's; `portal.js` is the hallway's with `setView` added; `tools/lib/chrome.mjs` is Breadboard's `scripts/lib/chrome.mjs` apart from comments. A fix to one of them belongs in its original too, and one made there belongs here.
+- Link previews: the `og:` and `twitter:` tags in `index.html` show `hallway-preview.jpg`, the picture the hallway's door uses (a test keeps them matching `HALLWAY_DOOR` and the picture's size), so render it again with `tools/preview.mjs` when the garden changes.

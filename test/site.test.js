@@ -1,5 +1,5 @@
 // The site as published: the page, its modules and imports, the door it would have in the
-// hallway, and the pictures either side of that door.
+// hallway, the pictures either side of that door, and what a shared link shows.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -83,4 +83,14 @@ test('the pictures either side of the door: the garden for the hallway, 2:1; the
   assert.ok(v, 'views.json has a good entry for this door');
   const size = jpegSize(join(root, 'views', v.image));
   assert.ok(Math.abs(size.width / size.height - v.aspect) < 0.01);
+});
+
+test('a shared link shows the garden: its address, and the hallway\'s picture of it at the size the page says', () => {
+  const meta = (p) => html.match(new RegExp(`<meta (?:property|name)="${p}" content="([^"]*)">`))?.[1];
+  assert.equal(meta('og:url'), HALLWAY_DOOR.url);
+  assert.equal(meta('og:image'), HALLWAY_DOOR.preview);
+  const size = jpegSize(join(root, HALLWAY_DOOR.preview.slice(HALLWAY_DOOR.url.length)));
+  assert.equal(Number(meta('og:image:width')), size.width);
+  assert.equal(Number(meta('og:image:height')), size.height);
+  for (const p of ['og:type', 'og:site_name', 'og:title', 'og:description', 'og:image:alt', 'twitter:card']) assert.ok(meta(p), `no ${p}`);
 });
