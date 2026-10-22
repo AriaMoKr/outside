@@ -6,7 +6,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HALLWAY_DOOR, HALLWAY_URL, VISIT_PARAMS, viewParams } from '../public/js/way.js';
+import { LINK_PARAMS, VISIT_PARAMS, hallwayUrl, viewParams } from 'common/door.js';
+import { HALLWAY_DOOR, OUTSIDE_ID } from '../public/js/way.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
@@ -20,7 +21,7 @@ test('the page uses relative URLs only, so it works under any path (GitHub Pages
 
 test('without JavaScript, the page still leads back to the hallway', () => {
   const noscript = html.slice(html.indexOf('<noscript>'), html.indexOf('</noscript>'));
-  assert.ok(noscript.includes(`href="${HALLWAY_URL}"`));
+  assert.ok(noscript.includes(`href="${hallwayUrl(OUTSIDE_ID)}"`));
 });
 
 test('every client module parses', () => {
@@ -31,13 +32,19 @@ test('every client module parses', () => {
   }
 });
 
-test('client modules import only three, the shared-session layer and each other', () => {
-  const layer = /^layersharedsession\/[a-z]+\.js$/;
+test('client modules import only three, the shared packages and each other', () => {
+  const shared = /^(common|layersharedsession)\/[a-z]+\.js$/;
+  const { imports } = JSON.parse(html.match(/<script type="importmap">(.*?)<\/script>/s)[1]);
+  const installed = existsSync(join(root, 'vendor'));
   for (const f of readdirSync(join(root, 'js'))) {
     if (!f.endsWith('.js')) continue;
     const src = readFileSync(join(root, 'js', f), 'utf8');
     for (const m of src.matchAll(/(?:^import\s.*?from\s+|import\()'([^']+)'/gms)) {
-      assert.ok(m[1] === 'three' || layer.test(m[1]) || m[1].startsWith('./'), `${f} imports ${m[1]}`);
+      assert.ok(m[1] === 'three' || shared.test(m[1]) || m[1].startsWith('./'), `${f} imports ${m[1]}`);
+      if (shared.test(m[1]) && installed) {
+        const [name, file] = m[1].split('/');
+        assert.ok(existsSync(join(root, imports[`${name}/`], file)), `${f} imports ${m[1]}, which is not in vendor/`);
+      }
       if (m[1].startsWith('./')) assert.ok(existsSync(join(root, 'js', m[1])), `${f} imports ${m[1]}, which is not there`);
     }
   }
@@ -45,7 +52,7 @@ test('client modules import only three, the shared-session layer and each other'
 
 test('the import map maps what the page and the shared session load to their copies in vendor/', () => {
   const { imports } = JSON.parse(html.match(/<script type="importmap">(.*?)<\/script>/s)[1]);
-  assert.deepEqual(Object.keys(imports).sort(), ['@noble/secp256k1', '@trystero-p2p/core', 'layersharedsession/', 'three', 'trystero']);
+  assert.deepEqual(Object.keys(imports).sort(), ['@noble/secp256k1', '@trystero-p2p/core', 'common/', 'layersharedsession/', 'three', 'trystero']);
   for (const url of Object.values(imports)) assert.match(url, /^\.\/vendor\//);
   if (!existsSync(join(root, 'vendor'))) return; // not installed yet
   for (const [name, url] of Object.entries(imports)) assert.ok(existsSync(join(root, url)), `${name}: ${url} missing (npm install)`);
@@ -58,7 +65,7 @@ test('the door the hallway would have to here is a complete entry of its environ
   assert.equal(new URL(e.url).protocol, 'https:');
   assert.equal(new URL(e.preview).protocol, 'https:');
   assert.match(e.color, /^#[0-9a-f]{6}$/);
-  for (const k of [...VISIT_PARAMS, 'room']) assert.ok(!new URL(e.url).searchParams.has(k), `its url uses ${k}, which the hallway adds`);
+  for (const k of new Set([...LINK_PARAMS, ...VISIT_PARAMS])) assert.ok(!new URL(e.url).searchParams.has(k), `its url uses ${k}, which a door adds`);
   // The preview it names is this site's own picture.
   assert.ok(e.preview.startsWith(e.url));
   assert.ok(existsSync(join(root, e.preview.slice(e.url.length))), `${e.preview} is not in public/`);

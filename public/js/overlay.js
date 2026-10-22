@@ -28,7 +28,7 @@ const READING = {
 
 export class Overlay {
   /**
-   * @param {{ url: string, label: string, title: string }} way the way back (way.js)
+   * @param {{ url: string, label: string, title: string }} way the way back (common/door.js wayBack)
    * @param {object} o
    * @param {() => string} o.href the address the way back opens now (it carries the shared session)
    * @param {() => void} o.onLeave called when its link is followed

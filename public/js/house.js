@@ -11,7 +11,7 @@ import { Builder } from './builder.js';
 import { BRICK_TILE, brickTexture, plaqueTexture, previewFallback, signTexture, windowTexture } from './textures.js';
 import { openingGeometry, placePortal, portalMaterial, setView } from './portal.js';
 import { ControlPanel } from './panel.js';
-import { viewParams } from './way.js';
+import { viewParams } from 'common/door.js';
 
 const lin = (hex) => {
   const c = new THREE.Color(hex);

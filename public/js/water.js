@@ -4,7 +4,7 @@
 // pond, reflects the sky (the same picture as the dome, sky.js), catches the sun where the baked
 // shadows let it, and is brown over the shallows and dark green-blue over the deep.
 import * as THREE from 'three';
-import { STREAM_X, farWidth, nearWidth, streamAt, waterDepth, waterLevel } from './garden.js';
+import { STREAM_X, WATER_UNDER, farWidth, nearWidth, streamAt, waterDepth, waterLevel } from './garden.js';
 import { SUN_DIR, sunlit } from './bake.js';
 import { Builder } from './builder.js';
 import { SKY_UV } from './sky.js';
@@ -106,7 +106,7 @@ void main() {
  */
 export function buildWater(env, skyMap) {
   const b = new Builder();
-  const STEP = 0.2, ACROSS = 22, UNDER = 0.4; // under the banks
+  const STEP = 0.2, ACROSS = 22, UNDER = WATER_UNDER; // under the banks
   const xs = [];
   for (let x = STEP_X(STREAM_X[1]); x >= STREAM_X[0] - 1e-6; x -= STEP) xs.push(x);
   const s = { z: 0, dz: 0 };

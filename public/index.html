@@ -23,7 +23,7 @@
   // page one at once: note it before the module script below is ready to take it.
   if (navigator.xr && navigator.xr.addEventListener) navigator.xr.addEventListener('sessiongranted', function () { window.outsideXrGranted = true; });
 </script>
-<script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","layersharedsession/":"./vendor/layersharedsession/","trystero":"./vendor/trystero-nostr/index.mjs","@trystero-p2p/core":"./vendor/trystero-core/index.mjs","@noble/secp256k1":"./vendor/noble-secp256k1/index.js"}}</script>
+<script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","common/":"./vendor/common/","layersharedsession/":"./vendor/layersharedsession/","trystero":"./vendor/trystero-nostr/index.mjs","@trystero-p2p/core":"./vendor/trystero-core/index.mjs","@noble/secp256k1":"./vendor/noble-secp256k1/index.js"}}</script>
 </head>
 <body>
 <div id="app"></div>

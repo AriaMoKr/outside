@@ -5,14 +5,15 @@
 // foot bridge into a pond, a trail over the bridge to a bench, and on the bench a book to read.
 // The shared session (together.js) comes out here too, and goes back in.
 import * as THREE from 'three';
-import { DOOR, doorCrossed, doorSpawn, groundAt, layoutGarden } from './garden.js';
+import { DOOR, doorCrossed, doorSpawn, layoutGarden, surfaceAt } from './garden.js';
 import { HAZE, buildGarden } from './scene.js';
 import { Controls } from './controls.js';
 import { Fade } from './fade.js';
 import { Overlay } from './overlay.js';
-import { DEFAULT_GLOW, hallwayViews, keptWay, leaveUrl, readVisit, wayBack, withoutVisit } from './way.js';
+import { DEFAULT_GLOW, OUTSIDE_ID } from './way.js';
 import { setAnisotropy } from './textures.js';
-import { loadNav, saveNav } from './settings.js';
+import { hallwayViews, keptWay, leaveUrl, readVisit, wayBack, withoutVisit } from 'common/door.js';
+import { loadNav, saveNav } from 'common/nav.js';
 import { Together } from './together.js';
 import { Book } from './book.js';
 import { renderPreview, previewView } from './preview.js';
@@ -51,7 +52,7 @@ function kept() {
   }
 }
 const before = cameThrough ? null : kept();
-const way = before?.way ?? wayBack(location.search, location.origin);
+const way = before?.way ?? wayBack(location.search, OUTSIDE_ID, { origin: location.origin });
 const glow = visit.glow ?? before?.glow ?? DEFAULT_GLOW;
 const doorWidth = visit.dw ?? before?.dw ?? DOOR.width;
 const doorHeight = visit.dh ?? before?.dh ?? DOOR.height;
@@ -62,9 +63,11 @@ try {
 }
 const unvisited = withoutVisit(location.href);
 if (unvisited !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', unvisited);
+// Another place: its host, or the name it gives itself (backname), as short as on the way's label.
+const shortName = way.label.replace(/^← /, '');
 const names = way.hallway
   ? { title: 'Hallway', subtitle: 'Doors to other places', sign: 'Hallway' }
-  : { title: way.name, subtitle: 'The way you came', sign: way.name };
+  : { title: shortName, subtitle: 'The way you came', sign: shortName };
 
 let together = null; // the shared session, made once the scene is (below)
 const overlay = new Overlay(way, {
@@ -109,7 +112,7 @@ const garden = buildGarden(L, { names, glow, anisotropy });
 scene.add(garden.group);
 // Through the doorway, the view the hallway publishes from its door to here; until it does, the
 // one rendered from it with that door added (tools/hallway-view.mjs). Elsewhere, its glow and name.
-const views = hallwayViews(way);
+const views = hallwayViews(way, OUTSIDE_ID);
 if (views) garden.house.loadView([views, { views: new URL('views/views.json', location.href).href, id: views.id }]);
 
 const controls = new Controls({ renderer, camera, rig, scene, dom: renderer.domElement, layout: L });
@@ -339,7 +342,7 @@ controls.onTeleport = (move) => {
 
 // ── The shared session ───────────────────────────────────────────────────────
 
-together = new Together({ scene, camera, renderer, hands: () => controls.hands, ground: (x, z) => groundAt(L, x, z) });
+together = new Together({ scene, camera, renderer, hands: () => controls.hands, ground: (x, z) => surfaceAt(L, x, z) });
 together.onChange = () => {
   showPanel();
   overlay.setInvite(together.active ? together.inviteLink : '');

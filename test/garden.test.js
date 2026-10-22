@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   BENCH, BOOK, BRIDGE, BRIDGE_ENDS, GARDEN, HOUSE, PANEL, PLAQUE, TRAIL_LINE, TREES,
   castRay, clampWalk, clearPath, deckHeight, doorCrossed, doorSpawn, dry, groundAt, layoutGarden,
-  onDeck, panelButtonAt, route, shoreAt, sideOf, standable, terrain, trailDistance, waterAt, waterLevel,
+  onDeck, panelButtonAt, route, shoreAt, sideOf, standable, surfaceAt, terrain, trailDistance, waterAt, waterLevel,
 } from '../public/js/garden.js';
 
 const L = layoutGarden();
@@ -67,6 +67,24 @@ test('the bridge stands on both banks and clears the water', () => {
   }
   const mid = (BRIDGE.zA + BRIDGE.zB) / 2;
   assert.ok(deckHeight(L, mid) > deckHeight(L, BRIDGE.zA) + 0.3, 'it arches');
+});
+
+test('a visitor\'s ring lies on top: on the lawn, on the deck, on the water where it covers the edge', () => {
+  assert.equal(surfaceAt(L, -1, -3), groundAt(L, -1, -3), 'the lawn');
+  const mid = (BRIDGE.zA + BRIDGE.zB) / 2;
+  assert.equal(surfaceAt(L, BRIDGE.x, mid), deckHeight(L, mid), 'the deck, over the water');
+  let wet = 0;
+  for (let x = GARDEN.x0 + 0.5; x <= GARDEN.x1 - 0.5; x += 0.1) {
+    for (let z = -1; z >= GARDEN.z1 + 0.5; z -= 0.1) {
+      if (!standable(L, x, z)) continue;
+      const y = surfaceAt(L, x, z), w = waterAt(x, z);
+      assert.ok(y >= groundAt(L, x, z), `in the ground at (${x.toFixed(1)}, ${z.toFixed(1)})`);
+      // The water's surface runs 0.4 m on under the banks (water.js).
+      if (w.shore < 0.4) assert.ok(y >= w.level, `under the water at (${x.toFixed(1)}, ${z.toFixed(1)})`);
+      if (y > groundAt(L, x, z)) wet++;
+    }
+  }
+  assert.ok(wet > 0, 'a visitor can stand at the water\'s very edge, and the ring is on the water there');
 });
 
 test('the trail is dry all the way, but where the bridge carries it', () => {

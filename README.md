@@ -33,7 +33,8 @@ little, and the bridge arches: you go up and down with it.
 **Fullscreen**, the **control panel** on the wall beside the door (Enter or exit VR, and how to
 move and turn in VR: Smooth or Teleport, Snap or Smooth), and **Together** work as they do in the
 hallway. The VR choices are the hallway's own: both read and keep them in `localStorage` under
-`hallway.nav`, so a choice made on either side of the door holds on the other.
+`hallway.nav` ([AriaMoKr/common](https://github.com/AriaMoKr/common)'s `nav.js`), so a choice made
+on either side of the door holds on the other.
 
 ## The bench, and the book
 
@@ -57,13 +58,14 @@ your books"). All are in the public domain. Thoreau's passage is Project Gutenbe
 
 ## Coming out of the hallway's door
 
-The hallway opens a door's environment with the visit added to its address (its README,
-"Going in"). This garden reads it once and takes it off the address, so a reload, Back or a
-shared link doesn't arrive again; `room` stays.
+The hallway opens a door's environment with the visit added to its address: the door contract,
+in [AriaMoKr/common](https://github.com/AriaMoKr/common)'s README ("Going in", "Linking back"),
+whose `door.js` the garden reads it with. It reads it once and takes it off the address, so a
+reload, Back or a shared link doesn't arrive again; `room` stays.
 
 | Parameter | What the garden does with it |
 |---|---|
-| `from=hallway`, `back` | The door back leads to `back`, called the Hallway when it is one (on this site's origin or the hallway's). Any other address is named by its host. Without `back`, the door leads to the hallway anyway, at `?from=outside`: this garden is outside its door, however one got here. The way back lasts the tab (`sessionStorage`). |
+| `from=hallway`, `back`, `backname` | The door back leads to `back`, called the Hallway when it is the hallway's own page (or, developing, when both are on this machine). Any other address is named by its host, or by the name another hall gives itself with `backname`, cut to 24 characters on the button, the sign and the plaque. Without `back`, the door leads to the hallway anyway, at `?from=outside`: this garden is outside its door, however one got here. The way back lasts the tab (`sessionStorage`). |
 | `dx`, `yaw`, `pitch` | You come out where you went in (`dx` across the doorway), turned and looking as you were. Facing straight in, through the hallway's doorway, you see the garden's picture; coming out, you see the garden from where that picture was taken. |
 | `dw`, `dh`, `glow` | The door back is that wide and high, and glows in that colour. |
 | `room` | You stay in the shared session (below); the door back carries it on. |
@@ -112,17 +114,19 @@ shows the hall from the hallway's own picture.
 The hallway's shared session ([AriaMoKr/layersharedsession](https://github.com/AriaMoKr/layersharedsession),
 peer to peer over WebRTC) comes out here too: this is the first place behind a door to take part.
 Come out of the hallway in a session and you join the same room here, as `outside`. The others
-out here are drawn as in the hallway: a head with a visor, their hands in VR, a ring on the ground
-and their name. The panel's **Start shared session** starts one here, and **Copy invite link**
-copies its address. The door back carries the room into the hallway. In the hallway, those out
-here count as elsewhere.
+out here are drawn by the layer's `avatars.js`, as in the hallway: a head with a visor, their hands
+in VR, a ring on the ground (on the water, where they stand at its very edge) and their name. A
+wave from anyone in the session (the hallway's **Wave**, or a grip in its VR) shows as a toast, and
+bobs their avatar when they are out here; the garden has no Wave of its own yet. The panel's
+**Start shared session** starts one here, and **Copy invite link** copies its address. The door
+back carries the room into the hallway. In the hallway, those out here count as elsewhere.
 
 ## Running it
 
 You need Node.js 22 or newer.
 
 ```bash
-npm install     # three.js, the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/
+npm install     # three.js, common (the door contract), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/
 npm start       # http://localhost:8090/
 npm test
 ```

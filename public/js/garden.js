@@ -145,6 +145,9 @@ export function waterDepth(x) {
   return 0.26 + 0.5 * bump(x, -4.1, 1.8);
 }
 
+/** How far the water's surface runs on under the banks, past its edge (water.js). */
+export const WATER_UNDER = 0.4;
+
 const _s = { z: 0, dz: 0 };
 /**
  * The water near (x, z): `across`, the distance from the stream's middle line (+ toward the house),
@@ -347,6 +350,17 @@ export function groundAt(L, x, z) {
   if (onDeck(x, z)) return deckHeight(L, z);
   const h = sample(L.grid, L.grid.h, x, z);
   return Number.isNaN(h) ? terrain(x, z) : h;
+}
+
+/**
+ * What is on top at (x, z), for a visitor's ring: the ground, or the water where its surface covers
+ * the ground (dry() lets a visitor stand a little into the water's edge, and the surface runs on
+ * under the banks).
+ */
+export function surfaceAt(L, x, z) {
+  const y = groundAt(L, x, z);
+  const w = waterAt(x, z, _w);
+  return w.shore < WATER_UNDER && w.level > y ? w.level : y;
 }
 
 /** How far (x, z) is beyond the water's edge (- in the water), from the grid where it reaches. */

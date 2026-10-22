@@ -54,7 +54,7 @@ export class Controls {
     this.hover = null; // what is pointed at that could be used: 'door', 'bench', 'book', 'page', a panel button id
     this.hoverDoor = false;
     this.hoverPanel = null; // the control panel's button pointed at
-    /** VR navigation (settings.js): move 'smooth' | 'teleport', turn 'snap' | 'smooth'. */
+    /** VR navigation (common/nav.js, under hallway.nav): move 'smooth' | 'teleport', turn 'snap' | 'smooth'. */
     this.move = 'smooth';
     this.turn = 'snap';
     /** (how) when the door is chosen: how is 'screen' or 'xr'. */
@@ -124,7 +124,7 @@ export class Controls {
     this._apply();
   }
 
-  /** Sets how to move and turn in VR (settings.js). */
+  /** Sets how to move and turn in VR (common/nav.js). */
   setNav({ move, turn }) {
     this.move = move;
     this.turn = turn;

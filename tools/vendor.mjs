@@ -16,6 +16,9 @@ const FILES = [
   { from: 'three/build/three.core.js', to: 'three/build/three.core.js' },
   { from: 'three/LICENSE', to: 'three/LICENSE' },
   { from: 'iwer/build/iwer.module.js', to: 'iwer/iwer.module.js', optional: true },
+  // The Hallway's door contract and VR movement choice (AriaMoKr/common).
+  { dir: 'common/src', to: 'common', ext: '.js' },
+  { from: 'common/LICENSE', to: 'common/LICENSE' },
   // The shared session (AriaMoKr/layersharedsession) and what it runs on: Trystero, whose default
   // strategy (Nostr) imports @trystero-p2p/core and @noble/secp256k1.
   { dir: 'layersharedsession/public/js', to: 'layersharedsession', ext: '.js' },
