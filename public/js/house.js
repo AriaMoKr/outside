@@ -9,9 +9,9 @@ import * as THREE from 'three';
 import { HOUSE, PANEL, PLAQUE } from './garden.js';
 import { Builder } from './builder.js';
 import { BRICK_TILE, brickTexture, plaqueTexture, previewFallback, signTexture, windowTexture } from './textures.js';
-import { openingGeometry, placePortal, portalMaterial, setView } from './portal.js';
 import { ControlPanel } from './panel.js';
 import { viewParams } from 'common/door.js';
+import { openingGeometry, placePortal, portalMaterial, setView } from 'common/portal.js';
 
 const lin = (hex) => {
   const c = new THREE.Color(hex);
