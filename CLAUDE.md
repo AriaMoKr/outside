@@ -23,7 +23,7 @@ npm install                  # postinstall: tools/vendor.mjs copies three, commo
 npm start                    # tools/serve.mjs: public/ on http://localhost:8090/ (IPv6 only on Windows; for a Quest: npm start -- --host 127.0.0.1)
 npm test                     # node --test "test/*.test.js"
 node tools/preview.mjs       # public/hallway-preview.jpg, the garden for the hallway's doorway (headless Chrome)
-node tools/hallway-view.mjs  # public/views/, the hall seen out of its door to here, from a copy of ../hallway with the door added
+node tools/hallway-view.mjs  # public/views/, the hall seen out of its door to here, from a copy of ../hallway (the door added if it has none)
 ```
 
 Node 22 or newer (`engines`, and what CI uses; `tools/lib/chrome.mjs` needs its built-in WebSocket). It runs under MSYS2 UCRT64 here (`MSYSTEM=UCRT64 /c/msys64/usr/bin/bash -lc 'cd /c/git/my/claude/outside && …'`).

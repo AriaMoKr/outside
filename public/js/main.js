@@ -110,8 +110,8 @@ scene.add(rig);
 const L = layoutGarden({ doorWidth, doorHeight });
 const garden = buildGarden(L, { names, glow, anisotropy });
 scene.add(garden.group);
-// Through the doorway, the view the hallway publishes from its door to here; until it does, the
-// one rendered from it with that door added (tools/hallway-view.mjs). Elsewhere, its glow and name.
+// Through the doorway, the view the hallway publishes from its door to here; when that can't be
+// had, the one rendered from it here (tools/hallway-view.mjs). Elsewhere, its glow and name.
 const views = hallwayViews(way, OUTSIDE_ID);
 if (views) garden.house.loadView([views, { views: new URL('views/views.json', location.href).href, id: views.id }]);
 

@@ -3,8 +3,8 @@
 // behind them, a slate roof and chimneys; in it, the door back, in a stone doorcase, under the
 // hallway's enamel sign, its plaque beside it and the control panel the other side. The doorway
 // glows like the hallway's own doorways and shows the hall through it: the view the hallway
-// publishes out of its door to here (its README, "The view from your door"), or a picture of our
-// own until that can be read.
+// publishes out of its door to here (common's README, "The view from your door"), or a picture of
+// our own when that can't be read.
 import * as THREE from 'three';
 import { HOUSE, PANEL, PLAQUE } from './garden.js';
 import { Builder } from './builder.js';

@@ -1,5 +1,5 @@
 {
- "about": "The view out of the hallway's door to this garden, rendered by tools/hallway-view.mjs from a copy of the hallway with that door added: the doorway here shows it until the hallway publishes its own (its README, \"The view from your door\").",
+ "about": "The view out of the hallway's door to this garden, rendered by tools/hallway-view.mjs from a copy of the hallway (that door added if it has none): the doorway here shows it when the one the hallway publishes can't be had (common's README, \"The view from your door\").",
  "views": {
   "outside": {
    "image": "outside.jpg",

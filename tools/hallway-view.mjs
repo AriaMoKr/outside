@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Renders the hallway as seen out of its door to this garden, for the doorway here to show until
-// the hallway publishes that view itself (its README, "The view from your door"). It copies a
-// checkout of the hallway (AriaMoKr/hallway, `npm install`ed) to a temporary folder, adds this
-// garden's door to the copy's environments.js (public/js/way.js HALLWAY_DOOR; the checkout is not
-// touched), serves the copy, and has the hallway render its door views in headless Chrome. It
-// writes public/views/outside.jpg and public/views/views.json, in the hallway's own format.
-// Run it again when the hallway changes; the files are committed.
+// Renders the hallway as seen out of its door to this garden, for the doorway here to show when
+// the view the hallway publishes itself can't be had (common's README, "The view from your door").
+// It copies a checkout of the hallway (AriaMoKr/hallway, `npm install`ed) to a temporary folder,
+// adds this garden's door to the copy's environments.js if it has none (public/js/way.js
+// HALLWAY_DOOR; the checkout is not touched), serves the copy, and has the hallway render its door
+// views in headless Chrome. It writes public/views/outside.jpg and public/views/views.json, in the
+// hallway's own format. Run it again when the hallway changes; the files are committed.
 //   node tools/hallway-view.mjs [--hallway ../hallway]
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -27,11 +27,16 @@ if (!existsSync(join(source, 'js', 'environments.js')) || !existsSync(join(sourc
 
 const copy = mkdtempSync(join(tmpdir(), 'outside-hallway-'));
 cpSync(source, copy, { recursive: true });
-// This garden's door, after the others.
+// This garden's door, after the others, unless the hallway has it already (it has, since its
+// 9dd2d5a): a second would be a fifth door.
 const envs = join(copy, 'js', 'environments.js');
 const text = readFileSync(envs, 'utf8');
-const end = text.lastIndexOf('];');
-writeFileSync(envs, `${text.slice(0, end)}  ${JSON.stringify(HALLWAY_DOOR)},\n${text.slice(end)}`);
+const hasDoor = new RegExp(`['"]?\\bid['"]?\\s*:\\s*['"]${HALLWAY_DOOR.id}['"]`).test(text);
+if (!hasDoor) {
+  const end = text.lastIndexOf('];');
+  writeFileSync(envs, `${text.slice(0, end)}  ${JSON.stringify(HALLWAY_DOOR)},\n${text.slice(end)}`);
+}
+console.log(hasDoor ? `The hallway has its door to ${HALLWAY_DOOR.id}, as it is.` : `The hallway has no door to ${HALLWAY_DOOR.id}: HALLWAY_DOOR added to the copy.`);
 
 const server = await serve(copy);
 const chrome = await launchChrome();
@@ -47,7 +52,7 @@ try {
   const bytes = Buffer.from(mine.jpeg.slice(mine.jpeg.indexOf(',') + 1), 'base64');
   writeFileSync(join(dir, `${mine.id}.jpg`), bytes);
   const json = {
-    about: 'The view out of the hallway\'s door to this garden, rendered by tools/hallway-view.mjs from a copy of the hallway with that door added: the doorway here shows it until the hallway publishes its own (its README, "The view from your door").',
+    about: 'The view out of the hallway\'s door to this garden, rendered by tools/hallway-view.mjs from a copy of the hallway (that door added if it has none): the doorway here shows it when the one the hallway publishes can\'t be had (common\'s README, "The view from your door").',
     views: { [mine.id]: { image: `${mine.id}.jpg`, ...mine.params } },
   };
   writeFileSync(join(dir, 'views.json'), `${JSON.stringify(json, null, 1)}\n`);
