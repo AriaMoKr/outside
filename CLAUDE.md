@@ -9,9 +9,9 @@ bundler or build step): a lawn, a stream under a foot bridge into a pond, a trai
 book on the bench to read. It is a place behind a door of the Hallway (https://ariamokr.github.io/hallway/,
 AriaMoKr/hallway, a checkout at `../hallway`), whose conventions and controls it follows; much of
 its code is the hallway's (said so at the top of each such file). `public/` is the whole site.
-`README.md` covers using it, what it does with the hallway's door link, the door entry the hallway
-would add, and the pictures either side of that door. The hallway has no door here yet: the user
-asked for the hallway to be left alone, so change `../hallway` only when asked.
+`README.md` covers using it, what it does with the hallway's door link, the hallway's door entry for
+here (its fourth door, since the hallway's `9dd2d5a`), and the pictures either side of that door.
+The user asked for the hallway to be left alone, so change `../hallway` only when asked.
 
 Meant to publish at https://ariamokr.github.io/outside/ from `main` of AriaMoKr/outside by
 `.github/workflows/pages.yml` (same origin as the hallway, so the VR hand-over works).

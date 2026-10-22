@@ -19,12 +19,12 @@ in front of that door.
 
 As in the hallway:
 
-| | Look | Walk | Go back in |
-|---|---|---|---|
-| Desktop | drag | WASD or arrows (Shift runs), Q/E or ←/→ turn, click the ground | click the door, or walk into it |
-| Phone | drag | tap the ground | tap the door |
-| Headset | your head | left stick walks (or aims a teleport), right stick turns, trigger at the ground teleports | trigger (or pinch) at the door, or step through it |
-| Gamepad | right stick | left stick (click it in to hurry) | aim the dot at the door and press A, or walk into it |
+| | Look | Walk | Go back in | Wave (in a shared session) |
+|---|---|---|---|---|
+| Desktop | drag | WASD or arrows (Shift runs), Q/E or ←/→ turn, click the ground | click the door, or walk into it | the **Wave** button |
+| Phone | drag | tap the ground | tap the door | the **Wave** button |
+| Headset | your head | left stick walks (or aims a teleport), right stick turns, trigger at the ground teleports | trigger (or pinch) at the door, or step through it | squeeze a grip |
+| Gamepad | right stick | left stick (click it in to hurry) | aim the dot at the door and press A, or walk into it | the **Wave** button |
 
 A walk to somewhere across the water goes over the bridge, and round the pond. You can't walk
 into the water, or through the hedges, the trees or the bench. The ground rises and falls a
@@ -75,22 +75,23 @@ click (`sessiongranted`): the garden listens for it from the first script on the
 it at once, so you stay in VR, as long as both are on `ariamokr.github.io`.
 
 Through the door back you see the hall: the view the hallway publishes out of its door to here
-(`views/views.json` beside the hallway, under this garden's id, `outside`; its README, "The view
-from your door"). Until it publishes one, the doorway shows this site's own copy, rendered from the
-hallway with this garden's door added (`public/views/`, below). When the way back is not the
-hallway, the doorway shows its glow and the place's name.
+(`views/views.json` beside the hallway, under this garden's id, `outside`; common's README, "The
+view from your door"). When that can't be had, the doorway shows this site's own copy, rendered
+from the hallway (`public/views/`, below). When the way back is not the hallway, the doorway shows
+its glow and the place's name.
 
-## A door in the hallway
+## The door in the hallway
 
-The hallway has no door here yet. To add one, put this entry in its
+The hallway's fourth door, on the right across from the Music Room under a "Garden" sign, opens
+here. Its entry in the hallway's
 [`public/js/environments.js`](https://github.com/AriaMoKr/hallway/blob/main/public/js/environments.js)
-(the same as `HALLWAY_DOOR` in [`public/js/way.js`](public/js/way.js)):
+is the same as `HALLWAY_DOOR` in [`public/js/way.js`](public/js/way.js):
 
 ```js
 {
   id: 'outside',
-  title: 'Outside',
-  subtitle: 'A small garden: a lawn, a stream and a pond, a foot bridge, and a bench to read on',
+  title: 'outside',
+  subtitle: "A small garden outside one of the hallway's doors: a lawn, a stream and a pond, a foot bridge, and a bench to sit and read on. Walk it in VR on a Meta Quest, on a desktop or on a phone.",
   sign: 'Garden',
   url: 'https://ariamokr.github.io/outside/',
   preview: 'https://ariamokr.github.io/outside/hallway-preview.jpg',
@@ -98,16 +99,11 @@ The hallway has no door here yet. To add one, put this entry in its
 },
 ```
 
-and a link in its `<noscript>` list:
-
-```html
-<li><a href="https://ariamokr.github.io/outside/">Outside</a>: a small garden, a stream and a pond, and a bench to read on</li>
-```
-
-As its fourth door it takes the closed slot on the right, across from the Music Room, and the
-hall stays the same length. Then render the hallway's door views again (its README, "The view from
-your door") and commit them with it: its `views.json` then has `outside`, and this garden's door
-shows the hall from the hallway's own picture.
+As the hallway's README asks ("Adding a door"), the title on the plaque beside the door is this
+repository's name, and the subtitle under it is this page's description (its `<meta
+name="description">`) word for word; a test checks that they match. When the description changes,
+change the subtitle with it, here and in the hallway. The hallway's `views.json` has `outside`, so
+the door back here shows the hall from the hallway's own picture.
 
 ## Together
 
@@ -115,11 +111,13 @@ The hallway's shared session ([AriaMoKr/layersharedsession](https://github.com/A
 peer to peer over WebRTC) comes out here too: this is the first place behind a door to take part.
 Come out of the hallway in a session and you join the same room here, as `outside`. The others
 out here are drawn by the layer's `avatars.js`, as in the hallway: a head with a visor, their hands
-in VR, a ring on the ground (on the water, where they stand at its very edge) and their name. A
-wave from anyone in the session (the hallway's **Wave**, or a grip in its VR) shows as a toast, and
-bobs their avatar when they are out here; the garden has no Wave of its own yet. The panel's
-**Start shared session** starts one here, and **Copy invite link** copies its address. The door
-back carries the room into the hallway. In the hallway, those out here count as elsewhere.
+in VR, a ring on the ground (on the water, where they stand at its very edge) and their name.
+Waving is as in the hallway. The **Wave** button at the bottom right, or a controller's grip in VR
+(it pulses, so you feel it go out), waves to everyone in the session: they get a toast saying you
+waved, and those out here see your avatar bob. A wave from anyone else, here or in the hallway, is
+a toast here too, and bobs their avatar when they are out here. The panel's **Start shared
+session** starts one here, and **Copy invite link** copies its address. The door back carries the
+room into the hallway. In the hallway, those out here count as elsewhere.
 
 ## Running it
 

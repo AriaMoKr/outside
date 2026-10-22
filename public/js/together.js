@@ -5,8 +5,8 @@
 // session (the hallway is `hallway`). The others in it who are out here are drawn by the layer's
 // avatars.js, as on the other sites: a head with a visor on its front, a hand per tracked
 // controller, a ring on the ground (ground: the lawn's rises, the banks, the bridge's deck) and
-// their name. A wave from anyone in the session (the hallway's Wave, or a grip in VR) is a toast,
-// and bobs their avatar when they are out here.
+// their name. A wave (the Wave button, or a grip in VR, here or in the hallway) goes to everyone in
+// the session; one from someone else is a toast, and bobs their avatar when they are out here.
 //
 // The session module (and Trystero under it, ~360 kB) loads only when a session starts, so a visit
 // without one costs nothing; the avatars' geometry is made with the first one met.
@@ -81,6 +81,13 @@ export class Together {
       }
     }
     return { here, away };
+  }
+
+  /** Waves to the others in the session. False when not in one. */
+  wave() {
+    if (!this.session) return false;
+    this.session.channel('wave').send(1);
+    return true;
   }
 
   /** Starts a session in `room` (a new one by default), and puts the room in the address. */

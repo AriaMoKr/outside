@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Renders the picture the hallway's doorway to here shows (public/js/preview.js) with headless
 // Chrome, to public/hallway-preview.jpg: the garden as one sees it coming out of the door. The
-// door's entry (README, "A door in the hallway") names it as its `preview`. Run it again after
+// door's entry (README, "The door in the hallway") names it as its `preview`. Run it again after
 // changing the garden; the JPEG is committed.
 //   node tools/preview.mjs [--out <file>]
 import { writeFileSync } from 'node:fs';

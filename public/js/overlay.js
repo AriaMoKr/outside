@@ -1,8 +1,8 @@
 // The page around the 3D view (not shown in a headset), as the hallway's: the garden's name and
 // the way back to the hallway as a plain link (for keyboards, screen readers and browsers without
 // WebGL), a hint on how to move (or, with the book open, how to read), the Fullscreen and Enter VR
-// buttons, Copy invite link while in a shared session, the dot a gamepad aims with, and short
-// messages.
+// buttons, Wave and Copy invite link while in a shared session, the dot a gamepad aims with, and
+// short messages.
 
 function el(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -47,11 +47,14 @@ export class Overlay {
     this.invite = el('button', { class: 'pill invite', type: 'button', hidden: '' }, 'Copy invite link');
     this.invite.addEventListener('click', () => this._copyInvite());
     this._inviteLink = '';
+    this.wave = el('button', { class: 'pill', type: 'button', hidden: '' }, 'Wave');
+    this.onWave = () => {};
+    this.wave.addEventListener('click', () => this.onWave());
     // On the bench, the book lies beside one, out of sight on a screen: this opens it (and puts it down).
     this.read = el('button', { class: 'pill read', type: 'button', hidden: '' }, 'Read the book');
     this.onRead = () => {};
     this.read.addEventListener('click', () => this.onRead());
-    this.buttons = el('div', { class: 'buttons' }, this.read, this.invite, this.fullscreen, this.vr);
+    this.buttons = el('div', { class: 'buttons' }, this.read, this.wave, this.invite, this.fullscreen, this.vr);
     this.dot = el('div', { class: 'aim', hidden: '', 'aria-hidden': 'true' });
     this.toasts = el('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
     this.root.append(this.card, this.hint, this.buttons, this.dot, this.toasts);
@@ -105,6 +108,11 @@ export class Overlay {
   setInvite(link) {
     this._inviteLink = link;
     this.invite.hidden = !link;
+  }
+
+  /** In a shared session (together.js active), or not: the Wave button shows while one is. */
+  setTogether(active) {
+    this.wave.hidden = !active;
   }
 
   async _copyInvite() {

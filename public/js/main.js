@@ -346,9 +346,17 @@ together = new Together({ scene, camera, renderer, hands: () => controls.hands, 
 together.onChange = () => {
   showPanel();
   overlay.setInvite(together.active ? together.inviteLink : '');
+  overlay.setTogether(together.active);
   overlay.refreshLinks();
 };
 together.onNotice = (text) => overlay.toast(text, 4);
+// A wave: the Wave button, or a controller's grip in VR (which pulses, so the waver feels it go).
+overlay.onWave = () => {
+  if (together.wave()) overlay.toast('You waved', 2);
+};
+controls.onSqueeze = (hand) => {
+  if (together.wave()) hand.source?.gamepad?.hapticActuators?.[0]?.pulse?.(0.6, 60);
+};
 // An invite link, or the hallway's door, names the room: join it.
 const invitedRoom = roomFromUrl(location.href);
 if (invitedRoom) together.start(invitedRoom);

@@ -8,14 +8,15 @@ export const OUTSIDE_ID = 'outside';
 export const DEFAULT_GLOW = '#9fd07a';
 
 /**
- * This garden's door in the hallway: the entry the hallway's environments.js takes for it (its
- * README, "Adding a door"). tools/hallway-view.mjs renders the hall with it, to show through the
- * door back here; README.md, "A door in the hallway", gives it to copy.
+ * This garden's door in the hallway: the same as its entry in the hallway's environments.js (its
+ * README, "Adding a door": the title the repository's name, the subtitle the page's description
+ * word for word). tools/hallway-view.mjs renders the hall with it, to show through the door back
+ * here; README.md, "The door in the hallway", shows it.
  */
 export const HALLWAY_DOOR = {
   id: OUTSIDE_ID,
-  title: 'Outside',
-  subtitle: 'A small garden: a lawn, a stream and a pond, a foot bridge, and a bench to read on',
+  title: 'outside',
+  subtitle: "A small garden outside one of the hallway's doors: a lawn, a stream and a pond, a foot bridge, and a bench to sit and read on. Walk it in VR on a Meta Quest, on a desktop or on a phone.",
   sign: 'Garden',
   url: 'https://ariamokr.github.io/outside/',
   preview: 'https://ariamokr.github.io/outside/hallway-preview.jpg',

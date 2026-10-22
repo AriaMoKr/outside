@@ -1,5 +1,5 @@
-// The site as published: the page, its modules and imports, the door it would have in the
-// hallway, the pictures either side of that door, and what a shared link shows.
+// The site as published: the page, its modules and imports, its door in the hallway, the pictures
+// either side of that door, and what a shared link shows.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -58,10 +58,12 @@ test('the import map maps what the page and the shared session load to their cop
   for (const [name, url] of Object.entries(imports)) assert.ok(existsSync(join(root, url)), `${name}: ${url} missing (npm install)`);
 });
 
-test('the door the hallway would have to here is a complete entry of its environments.js', () => {
+test('the hallway\'s door to here is a complete entry of its environments.js', () => {
   const e = HALLWAY_DOOR;
   assert.match(e.id, /^[a-z0-9-]+$/);
   assert.ok(e.title && e.subtitle && e.sign);
+  // The plaque beside it shows the page's own description, word for word (the hallway's README).
+  assert.equal(e.subtitle, html.match(/<meta name="description" content="([^"]*)">/)[1]);
   assert.equal(new URL(e.url).protocol, 'https:');
   assert.equal(new URL(e.preview).protocol, 'https:');
   assert.match(e.color, /^#[0-9a-f]{6}$/);

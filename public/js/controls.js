@@ -61,6 +61,8 @@ export class Controls {
     this.onDoor = () => {};
     /** (button id) when a button of the control panel is pressed. */
     this.onPanel = () => {};
+    /** (hand) when a controller's grip is squeezed in VR (main.js: a wave in the shared session). */
+    this.onSqueeze = () => {};
     /** () when the bench is chosen (sit down), and when the book is (open it). */
     this.onBench = () => {};
     this.onBook = () => {};
@@ -547,6 +549,7 @@ export class Controls {
         laser.visible = reticle.visible = false;
       });
       controller.addEventListener('select', () => this._xrSelect(hand));
+      controller.addEventListener('squeezestart', () => this.onSqueeze(hand));
       this.rig.add(controller);
       this.hands.push(hand);
     }
