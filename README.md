@@ -124,7 +124,7 @@ room into the hallway. In the hallway, those out here count as elsewhere.
 You need Node.js 22 or newer.
 
 ```bash
-npm install     # three.js, common (the door contract, and the doorway, fade and gamepad code the hallway shares), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/
+npm install     # three.js, common (the door contract, the sky, and the doorway, fade and gamepad code the hallway shares), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/
 npm start       # http://localhost:8090/
 npm test
 ```

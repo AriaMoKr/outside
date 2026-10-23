@@ -3,6 +3,9 @@
 // hedges, the walls, the bench and the bridge stop it), the sky's light, less of it under the
 // trees and against walls, light thrown back off the grass, and coloured point lights as in the
 // hallway (the doorway's glow). Nothing is lit per frame, so a headset pays only for textures.
+// The sun is where common's sky (sky.js) paints it: SUN_DIR, low in the west, over the bench's
+// right shoulder, in front of the house.
+import { SUN_DIR } from 'common/sky.js';
 
 /**
  * @typedef {object} Occluder  something that shades
@@ -17,9 +20,6 @@ const normalize = (x, y, z) => {
   const l = Math.hypot(x, y, z);
   return [x / l, y / l, z / l];
 };
-
-/** Toward the sun: low in the west, over the bench's right shoulder, in front of the house. */
-export const SUN_DIR = normalize(-0.72, 0.43, -0.55);
 
 /** Directions the sun's light is sampled from (its disc and a little penumbra), for soft shadows. */
 const SUN_SAMPLES = (() => {

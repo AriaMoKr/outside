@@ -10,8 +10,8 @@ import { buildGrass, buildHedges, buildTrees, hedgeRuns } from './plants.js';
 import { buildBench, buildBridge, buildLilies, buildRocks, buildWall, buildWaterGates, hedgeShadows } from './features.js';
 import { buildHouse } from './house.js';
 import { buildWater } from './water.js';
-import { skyDome, skyTexture } from './sky.js';
 import { grassTexture, leafTexture, mudTexture, pathTexture, rng } from './textures.js';
+import { skyDome, skyTexture } from 'common/sky.js';
 
 const lin = (hex) => {
   const c = new THREE.Color(hex);

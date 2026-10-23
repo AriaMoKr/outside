@@ -1,13 +1,13 @@
 // The water: one ribbon along the stream, from the right-hand hedge through the pond and out at the
 // left, lying at the water's level and reaching a little under the banks (the ground hides its
 // edges). Its shader ripples it, flowing downstream in the stream and stirred by the wind on the
-// pond, reflects the sky (the same picture as the dome, sky.js), catches the sun where the baked
-// shadows let it, and is brown over the shallows and dark green-blue over the deep.
+// pond, reflects the sky (the same picture as the dome, common's sky.js), catches the sun where
+// the baked shadows let it, and is brown over the shallows and dark green-blue over the deep.
 import * as THREE from 'three';
 import { STREAM_X, WATER_UNDER, farWidth, nearWidth, streamAt, waterDepth, waterLevel } from './garden.js';
-import { SUN_DIR, sunlit } from './bake.js';
+import { sunlit } from './bake.js';
 import { Builder } from './builder.js';
-import { SKY_UV } from './sky.js';
+import { SKY_UV, SUN_DIR } from 'common/sky.js';
 
 const vertexShader = /* glsl */ `
 attribute vec3 flow;   // travel (s, from where it comes in), across (m, + toward the house), calm (1 on the pond)
