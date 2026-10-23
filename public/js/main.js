@@ -86,6 +86,9 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.xr.enabled = true;
 renderer.xr.setReferenceSpaceType('local-floor');
+// The view, to a screen reader: a picture of the garden (what can be done in it is in the overlay).
+renderer.domElement.setAttribute('role', 'img');
+renderer.domElement.setAttribute('aria-label', 'A small garden: a lawn, a stream and a pond, a foot bridge, and a bench');
 document.getElementById('app').append(renderer.domElement);
 const anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 setAnisotropy(anisotropy);
@@ -187,8 +190,10 @@ controls.onBench = () => {
 controls.onBook = () => controls.sit(() => openBook());
 controls.onSeat = (seated) => {
   if (!seated) closeBook();
-  overlay.setSeated(seated && !renderer.xr.isPresenting);
+  overlay.setSeated(seated);
 };
+// The overlay's buttons do as the bench and the book do in 3D: on a screen, one walks there first.
+overlay.onBench = (sit) => (sit ? controls.onBench() : controls.stand());
 overlay.onRead = () => (book.isOpen ? closeBook() : controls.sit(() => openBook()));
 function openBook() {
   if (book.isOpen) return;
@@ -292,7 +297,7 @@ const takeGranted = () => {
 if (window.outsideXrGranted) takeGranted();
 navigator.xr?.addEventListener?.('sessiongranted', takeGranted);
 
-// ── The control panel on the wall ────────────────────────────────────────────
+// ── The control panel on the wall (and the same choices in the overlay) ──────
 
 function showPanel() {
   const company = together ? together.company() : { here: 0, away: 0 };
@@ -305,29 +310,41 @@ function showPanel() {
     here: company.here,
     away: company.away,
   });
+  overlay.setNav(nav);
+  overlay.setSession(!!together?.room);
 }
 showPanel();
+/** Starts a shared session, or leaves the one this is in. */
+function toggleSession() {
+  if (together.room) {
+    together.stop();
+    overlay.toast('You left the shared session');
+  } else {
+    together.start();
+    overlay.toast('Shared session started: Copy invite link to bring others out here', 5);
+  }
+}
+/** A VR movement choice ('move' or 'turn'), kept for here and the hallway (common/nav.js). */
+function choose(key, value) {
+  nav[key] = value;
+  controls.setNav(nav);
+  saveNav(nav);
+  showPanel();
+}
 controls.onPanel = (id) => {
   if (id === 'vr') {
     if (renderer.xr.isPresenting || vrSupported) enterVR(); // enters, or exits when in VR
     return;
   }
   if (id === 'session') {
-    if (together.room) {
-      together.stop();
-      overlay.toast('You left the shared session');
-    } else {
-      together.start();
-      overlay.toast('Shared session started: Copy invite link to bring others out here', 5);
-    }
+    toggleSession();
     return;
   }
   const [key, value] = id.split(':');
-  nav[key] = value;
-  controls.setNav(nav);
-  saveNav(nav);
-  showPanel();
+  choose(key, value);
 };
+overlay.onSession = toggleSession;
+overlay.onNav = choose;
 // A teleport in VR blinks: a moment of black hides the jump.
 controls.onTeleport = (move) => {
   if (leaving || !renderer.xr.isPresenting) {

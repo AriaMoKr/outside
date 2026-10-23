@@ -1,8 +1,11 @@
 // The page around the 3D view (not shown in a headset), as the hallway's: the garden's name and
 // the way back to the hallway as a plain link (for keyboards, screen readers and browsers without
-// WebGL), a hint on how to move (or, with the book open, how to read), the Fullscreen and Enter VR
-// buttons, Wave and Copy invite link while in a shared session, the dot a gamepad aims with, and
-// short messages.
+// WebGL), and what the garden offers in 3D as real controls as well: sitting on the bench and
+// getting up, reading the book (from anywhere: one walks to the bench first, as in 3D), starting or
+// leaving a shared session, and how to move and turn in VR (the panel on the wall's choices). The
+// card is the page's <nav>; the view is its <main>, with a hint on how to move (or, with the book
+// open, how to read), the Fullscreen and Enter VR buttons, Wave and Copy invite link while in a
+// shared session, the dot a gamepad aims with, and short messages.
 
 function el(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -35,12 +38,48 @@ export class Overlay {
    */
   constructor(way, { href = () => way.url, onLeave = () => {} } = {}) {
     this.root = document.getElementById('overlay');
+    this.view = document.getElementById('view-overlay');
     this.href = href;
     this.back = el('a', { class: 'way-back', href: href(), title: way.title }, way.label);
     this.back.addEventListener('click', () => onLeave());
+    // What one can do in the garden, without pointing at it in 3D.
+    /** (sit) true to sit on the bench (walking there first on a screen), false to get up. */
+    this.onBench = () => {};
+    this.onRead = () => {};
+    this.onSession = () => {};
+    /** (key, value) a movement choice for VR: 'move' 'smooth' or 'teleport', 'turn' 'snap' or 'smooth'. */
+    this.onNav = () => {};
+    this._seated = false;
+    this.bench = el('button', { class: 'chip', type: 'button' }, 'Sit on the bench');
+    this.bench.addEventListener('click', () => this.onBench(!this._seated));
+    this.read = el('button', { class: 'chip', type: 'button' }, 'Read the book');
+    this.read.addEventListener('click', () => this.onRead());
+    this.session = el('button', { class: 'chip', type: 'button' }, 'Start shared session');
+    this.session.addEventListener('click', () => this.onSession());
+    this.vrToggle = el('button', { class: 'chip', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'vr-settings' }, 'VR settings');
+    this.choices = new Map(); // 'move:smooth' → its radio button
+    const choice = (key, legend, options) => el('fieldset', {}, el('legend', {}, legend), ...options.map(([value, label]) => {
+      const input = el('input', { type: 'radio', name: key, value });
+      input.addEventListener('change', () => {
+        if (input.checked) this.onNav(key, value);
+      });
+      this.choices.set(`${key}:${value}`, input);
+      return el('label', {}, input, label);
+    }));
+    this.vrSettings = el('div', { class: 'vr-settings', id: 'vr-settings', hidden: '' },
+      choice('move', 'Move in VR', [['smooth', 'Smooth'], ['teleport', 'Teleport']]),
+      choice('turn', 'Turn in VR', [['snap', 'Snap'], ['smooth', 'Smooth']]));
+    this.vrToggle.addEventListener('click', () => {
+      const open = this.vrSettings.hidden;
+      this.vrSettings.hidden = !open;
+      this.vrToggle.setAttribute('aria-expanded', String(open));
+    });
     this.card = el('nav', { class: 'card', 'aria-label': 'Outside' },
       el('header', {}, el('h1', { class: 'brand' }, 'Outside'), this.back),
-      el('p', { class: 'tagline' }, 'A garden outside the Hallway: a lawn, a stream and a pond, a foot bridge, and a bench to read on'));
+      el('p', { class: 'tagline' }, 'A garden outside the Hallway: a lawn, a stream and a pond, a foot bridge, and a bench to read on'),
+      this.inGarden = el('section', { class: 'garden', 'aria-label': 'In the garden' },
+        el('div', { class: 'actions' }, this.bench, this.read, this.session, this.vrToggle),
+        this.vrSettings));
     this.hint = el('p', { class: 'hint' });
     this.fullscreen = el('button', { class: 'pill', type: 'button', hidden: '' }, 'Fullscreen');
     this.vr = el('button', { class: 'pill vr', type: 'button', hidden: '' }, 'Enter VR');
@@ -50,14 +89,11 @@ export class Overlay {
     this.wave = el('button', { class: 'pill', type: 'button', hidden: '' }, 'Wave');
     this.onWave = () => {};
     this.wave.addEventListener('click', () => this.onWave());
-    // On the bench, the book lies beside one, out of sight on a screen: this opens it (and puts it down).
-    this.read = el('button', { class: 'pill read', type: 'button', hidden: '' }, 'Read the book');
-    this.onRead = () => {};
-    this.read.addEventListener('click', () => this.onRead());
-    this.buttons = el('div', { class: 'buttons' }, this.read, this.wave, this.invite, this.fullscreen, this.vr);
+    this.buttons = el('div', { class: 'buttons' }, this.wave, this.invite, this.fullscreen, this.vr);
     this.dot = el('div', { class: 'aim', hidden: '', 'aria-hidden': 'true' });
     this.toasts = el('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
-    this.root.append(this.card, this.hint, this.buttons, this.dot, this.toasts);
+    this.root.append(this.card);
+    this.view.append(this.hint, this.buttons, this.dot, this.toasts);
     this._how = 'mouse';
     this._reading = false;
   }
@@ -77,9 +113,20 @@ export class Overlay {
     else this.hideHint();
   }
 
-  /** Sitting on the bench, or not: the button that opens the book shows while one is. */
+  /** Sitting on the bench, or not: the bench's button sits down, or gets up. */
   setSeated(on) {
-    this.read.hidden = !on;
+    this._seated = on;
+    this.bench.textContent = on ? 'Get up' : 'Sit on the bench';
+  }
+
+  /** In a shared session (or paused in one, going through a door), or not: its button leaves, or starts one. */
+  setSession(on) {
+    this.session.textContent = on ? 'Leave shared session' : 'Start shared session';
+  }
+
+  /** The VR movement choices as they are now (common/nav.js, the panel on the wall's too). */
+  setNav({ move, turn }) {
+    for (const [id, input] of this.choices) input.checked = id === `move:${move}` || id === `turn:${turn}`;
   }
 
   _showHint(seconds = 12) {
@@ -151,6 +198,7 @@ export class Overlay {
   /** No 3D view: the way back is all there is. */
   noWebGL(message) {
     this.card.classList.add('alone');
+    this.inGarden.remove();
     this.card.append(el('p', { class: 'no-webgl' }, message));
     this.hint.remove();
   }

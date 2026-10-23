@@ -40,7 +40,13 @@ on either side of the door holds on the other.
 
 Choose the bench (click or tap it, A on a gamepad, or the trigger in VR) to sit on it, facing the
 pond and the house. On a screen you walk there first; in VR you are on it at once. Beside you lies
-a book. Choose it, or **Read the book** (bottom right, on a screen), and it opens in front of you.
+a book. Choose it, or **Read the book**, and it opens in front of you.
+
+On a screen, the card at the top left has the garden's 3D choices as buttons too, for a keyboard
+or a screen reader: **Sit on the bench** (or **Get up**), **Read the book** (from anywhere: you
+walk to the bench first, as when you choose the book in 3D), **Start shared session** (or
+**Leave shared session**), and **VR settings**, how to move and turn in VR, as on the panel by
+the door. The view itself is a picture to a screen reader, named for what is in it.
 
 | | Turn a page | Put the book down | Get up |
 |---|---|---|---|
@@ -115,9 +121,9 @@ in VR, a ring on the ground (on the water, where they stand at its very edge) an
 Waving is as in the hallway. The **Wave** button at the bottom right, or a controller's grip in VR
 (it pulses, so you feel it go out), waves to everyone in the session: they get a toast saying you
 waved, and those out here see your avatar bob. A wave from anyone else, here or in the hallway, is
-a toast here too, and bobs their avatar when they are out here. The panel's **Start shared
-session** starts one here, and **Copy invite link** copies its address. The door back carries the
-room into the hallway. In the hallway, those out here count as elsewhere.
+a toast here too, and bobs their avatar when they are out here. **Start shared session**, on the
+panel or in the card, starts one here, and **Copy invite link** copies its address. The door back
+carries the room into the hallway. In the hallway, those out here count as elsewhere.
 
 ## Running it
 

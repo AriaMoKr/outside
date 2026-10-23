@@ -19,6 +19,14 @@ test('the page uses relative URLs only, so it works under any path (GitHub Pages
   for (const u of urls) assert.ok(!u.startsWith('/'), `root-relative URL ${u}`);
 });
 
+test('the view and what is over it are the page\'s main landmark, and the card is outside it', () => {
+  const main = html.slice(html.indexOf('<main>'), html.indexOf('</main>'));
+  assert.ok(main.length > 0, 'no <main>');
+  assert.ok(main.includes('id="app"') && main.includes('id="view-overlay"'));
+  assert.ok(!main.includes('id="overlay"'));
+  assert.equal(html.match(/<main\b/g).length, 1);
+});
+
 test('without JavaScript, the page still leads back to the hallway', () => {
   const noscript = html.slice(html.indexOf('<noscript>'), html.indexOf('</noscript>'));
   assert.ok(noscript.includes(`href="${hallwayUrl(OUTSIDE_ID)}"`));

@@ -482,6 +482,10 @@ export class Controls {
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('keydown', (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // The overlay's own controls keep their keys: a radio button its arrows (as the hallway's
+      // name field keeps its typing), and a button the Space that presses it.
+      if (e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
+      if (e.code === 'Space' && e.target?.closest?.('button, a[href]')) return;
       if (this.book) {
         if (e.code === 'Escape') {
           this.onCloseBook();
