@@ -97,6 +97,12 @@ a { color: var(--accent); }
 .toast { padding: 8px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); animation: toast-in 0.25s ease; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } }
 
+/* There for a screen reader, out of sight: the open book's words. */
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
 /* Less motion (common/access.js, set on <html> by main.js): messages appear, and the hint and the
    aiming dot change, without moving. */
 .reduce-motion .toast { animation: none; }

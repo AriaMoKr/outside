@@ -17,6 +17,8 @@ import { NAV_KEY, loadNav, saveNav } from 'common/nav.js';
 import { ACCESS_KEY, Vignette, eyeLift, loadAccess, motionQuery, reduceMotion, saveAccess, watchMotion } from 'common/access.js';
 import { Together } from './together.js';
 import { Book } from './book.js';
+import { readingText } from './pages.js';
+import { BOOK_TITLE } from './reading.js';
 import { renderPreview, previewView } from './preview.js';
 import { roomFromUrl } from 'layersharedsession/room.js';
 
@@ -222,9 +224,12 @@ function closeBook() {
   book.close();
   controls.book = null;
   overlay.setReading(false);
+  overlay.hideBookText();
 }
 controls.onPage = (side) => book.turn(side);
 controls.onCloseBook = closeBook;
+// The pages open, as words a screen reader reaches (and says as they turn).
+book.onShow = (pages) => overlay.showBookText(BOOK_TITLE, readingText(book.pages, pages));
 
 let active = false;
 controls.onActivity = () => {

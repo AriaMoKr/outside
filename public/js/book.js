@@ -204,6 +204,12 @@ export class Book {
     this.isOpen = false;
     /** Less motion (common/access.js): a page turns, and a narrow screen goes to the other page, at once. */
     this.reduceMotion = false;
+    /**
+     * (indices) the pages open to read, in reading order (the spread's two, or on a narrow screen the
+     * one in view; none inside a cover): when it opens, and as soon as a page turns. main.js puts
+     * their words where a screen reader reads them (pages.js readingText).
+     */
+    this.onShow = () => {};
     this._cache = new Map(); // page index → texture
     this._turning = null; // { t, dir, from, to }
     this._slide = 0; // the open book's offset, while sliding
@@ -289,6 +295,12 @@ export class Book {
     this._setMap(this.right, r);
   }
 
+  /** The pages open to read at `spread`: both, or on a narrow screen the one in view (onShow). */
+  _reading(spread) {
+    const [l, r] = spreadPages(this.pages, spread);
+    return (this.single ? [this.focus < 0 ? l : r] : [l, r]).filter((i) => i !== null);
+  }
+
   /**
    * Opens it in front of the camera: at reading distance a little below the eyes, turned up to
    * them. On a screen it is as near as fills most of the view; on a narrow one, a page at a time.
@@ -321,6 +333,7 @@ export class Book {
     this.group.updateMatrixWorld(true);
     this._inverse.copy(this.group.matrixWorld).invert();
     this._show();
+    this.onShow(this._reading(this.spread));
     return { pitch: -down };
   }
 
@@ -337,8 +350,12 @@ export class Book {
     if (this._turning) this._finishTurn();
     if (this.single) {
       // A page at a time: across the spread, then over the leaf.
-      if (side > 0 && this.focus < 0) return this._focus(1);
-      if (side < 0 && this.focus > 0 && this.spread > 0) return this._focus(-1);
+      const across = side > 0 ? this.focus < 0 : this.focus > 0 && this.spread > 0;
+      if (across) {
+        this._focus(side);
+        this.onShow(this._reading(this.spread));
+        return;
+      }
     }
     const to = this.spread + side;
     if (to < 0 || to >= this.spreads) return;
@@ -360,6 +377,7 @@ export class Book {
     this._leafAt(side > 0 ? 0 : 1);
     this._turning = { t: 0, side, to };
     if (this.single) this._focus(side > 0 ? -1 : 1);
+    this.onShow(this._reading(to));
   }
 
   /** The leaf e of the way over (0 lying on the right, 1 on the left), bending as it goes and lifting a little. */

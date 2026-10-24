@@ -6,7 +6,8 @@
 // for a screen too), how to move and turn in VR, the comfort vignette and seated mode. The card is
 // the page's <nav>; the view is its <main>, with a hint on how to move (or, with the book open, how
 // to read), the Fullscreen and Enter VR buttons, Wave and Copy invite link while in a shared
-// session, the dot a gamepad aims with, and short messages.
+// session, the dot a gamepad aims with, short messages, and the open book's words for a screen
+// reader.
 
 function el(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -103,8 +104,11 @@ export class Overlay {
     this.buttons = el('div', { class: 'buttons' }, this.wave, this.invite, this.fullscreen, this.vr);
     this.dot = el('div', { class: 'aim', hidden: '', 'aria-hidden': 'true' });
     this.toasts = el('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
+    // The open book's words for a screen reader, out of sight (the 3D book is what one sees): while
+    // it is open, a region named for the book holds the pages open, said politely as they turn.
+    this.bookText = el('div', { class: 'sr-only', 'aria-live': 'polite' });
     this.root.append(this.card);
-    this.view.append(this.hint, this.buttons, this.dot, this.toasts);
+    this.view.append(this.hint, this.buttons, this.dot, this.toasts, this.bookText);
     this._how = 'mouse';
     this._reading = false;
   }
@@ -153,6 +157,26 @@ export class Overlay {
   hideHint() {
     if (this._reading) return;
     this.hint.classList.add('gone');
+  }
+
+  /**
+   * The pages open, for a screen reader: a region named `title` (the book's), its heading `label`
+   * (where one is: 'Pages 4 and 5'), then `blocks`, their words, the book's headings under it
+   * (pages.js readingText). Each call replaces the last, and is announced.
+   */
+  showBookText(title, { label, blocks }) {
+    const block = (b) => {
+      if (b.kind === 'heading') return el(`h${b.level}`, {}, b.text);
+      if (b.kind === 'list') return el('ul', {}, ...b.items.map((item) => el('li', {}, item)));
+      if (b.kind === 'verse') return el('p', {}, ...b.lines.flatMap((line, i) => (i ? [el('br'), line] : [line])));
+      return el('p', {}, b.text);
+    };
+    this.bookText.replaceChildren(el('section', { 'aria-label': title }, el('h2', {}, label), ...blocks.map(block)));
+  }
+
+  /** The book put down: its words go. */
+  hideBookText() {
+    this.bookText.replaceChildren();
   }
 
   /** Works out the way back's link again (it carries the shared session's room). */

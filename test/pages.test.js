@@ -2,7 +2,7 @@
 // whole, each piece from a new page and the contents pointing at it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAGE, TEXT_WIDTH, TYPE, paginate, spreadCount, spreadPages } from '../public/js/pages.js';
+import { PAGE, TEXT_WIDTH, TYPE, paginate, readingText, spreadCount, spreadLabel, spreadPages } from '../public/js/pages.js';
 import { BOOK_SUBTITLE, BOOK_TITLE, COLOPHON, PIECES } from '../public/js/reading.js';
 
 // A stand-in for the canvas's measureText: every character half its type's size wide.
@@ -75,6 +75,48 @@ test('running heads and page numbers on the pieces\' pages, none on the title or
     assert.ok(p.head, 'a running head');
     assert.equal(p.folio, last + 1, 'numbered in order');
     last = p.folio;
+  }
+});
+
+test('read out, each piece is its title, author and source, then its paragraphs or stanzas whole', () => {
+  const norm = (s) => words(s).join(' ');
+  PIECES.forEach((piece, i) => {
+    const { start, end } = pagesOf(i);
+    const indices = Array.from({ length: end - start }, (_, k) => start + k);
+    const [heading, author, source, ...rest] = readingText(pages, indices).blocks;
+    assert.deepEqual(heading, { kind: 'heading', level: 3, text: piece.title });
+    assert.equal(author.text, piece.author, 'as written, not in capitals');
+    assert.equal(norm(source.text), norm(piece.source));
+    const parts = piece.text.split(/\n\s*\n/);
+    if (piece.kind === 'prose') assert.deepEqual(rest.map((b) => b.text), parts.map(norm), piece.title);
+    else assert.deepEqual(rest.map((b) => b.lines.map(norm)), parts.map((s) => s.split('\n').map(norm)), piece.title);
+  });
+});
+
+test('read out, the title page, the contents and the sources, and where one is', () => {
+  const title = readingText(pages, [0]);
+  assert.equal(title.label, 'The title page');
+  assert.deepEqual(title.blocks.slice(0, 2), [{ kind: 'heading', level: 3, text: BOOK_TITLE }, { kind: 'paragraph', text: BOOK_SUBTITLE, continued: false }]);
+  // The book's headings sit under the h2 that says where one is (overlay.js): never above it.
+  for (let i = 0; i < pages.length; i++) for (const b of readingText(pages, [i]).blocks) if (b.kind === 'heading') assert.equal(b.level, 3);
+  const contents = readingText(pages, [1]).blocks;
+  assert.deepEqual(contents[0], { kind: 'heading', level: 3, text: 'Contents' });
+  assert.deepEqual(contents[1].items, PIECES.map((p, i) => `${p.title}, ${p.author}, page ${pages[pagesOf(i).start].folio}`));
+  const sources = readingText(pages, [pages.length - 1]);
+  assert.equal(sources.label, 'The sources');
+  assert.deepEqual(sources.blocks.map((b) => b.text), COLOPHON.map((c) => words(c).join(' ')));
+  assert.equal(spreadLabel(pages, [1, 2]), 'The contents and page 1');
+  assert.equal(spreadLabel(pages, [3, 4]), `Pages ${pages[3].folio} and ${pages[4].folio}`);
+  assert.equal(spreadLabel(pages, [4]), `Page ${pages[4].folio}`);
+  assert.equal(spreadLabel(pages, []), 'The inside of the cover');
+  // A spread's two pages read on from one into the other: no paragraph cut where the page ends.
+  for (let s = 1; s < spreadCount(pages); s++) {
+    const [l, r] = spreadPages(pages, s);
+    if (l === null || r === null || !pages[r].kind) continue;
+    const both = readingText(pages, [l, r]).blocks.length;
+    const apart = readingText(pages, [l]).blocks.length + readingText(pages, [r]).blocks.length;
+    const runsOn = pages[r].items.find((it) => it.type === 'body') && !pages[r].items.find((it) => it.type === 'body').start && pages[l].kind === pages[r].kind;
+    assert.equal(both, apart - (runsOn ? 1 : 0), `spread ${s}`);
   }
 });
 

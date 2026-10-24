@@ -59,7 +59,10 @@ or a screen reader: **Sit on the bench** (or **Get up**), **Read the book** (fro
 walk to the bench first, as when you choose the book in 3D), **Start shared session** (or
 **Leave shared session**), and **Settings**: motion, how to move and turn in VR, the vignette and
 seated, as on the panel by the door. The view itself is a picture to a screen reader, named for
-what is in it.
+what is in it. With the book open, its words are there too, out of sight: a region named for the
+book holds the pages open (the one in view, on a narrow screen), headed with where you are (*Pages
+4 and 5*), with the book's titles as headings, its paragraphs and stanzas whole even where they run
+over a page, and the contents as a list. Each turn of a page replaces it and is read out.
 
 | | Turn a page | Put the book down | Get up |
 |---|---|---|---|
