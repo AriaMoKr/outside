@@ -164,9 +164,9 @@ a { color: var(--accent); }
 .reduce-motion .toast { animation: none; }
 .reduce-motion .hint, .reduce-motion .aim, .reduce-motion .card { transition: none; }
 
-/* Narrow screens: the card moves out of the toasts' way. */
+/* Narrow screens: the card moves out of the toasts' way. (The hint keeps clear of the buttons at
+   the foot by itself: overlay.js _placeHint.) */
 @media (max-width: 560px) {
-  .hint { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 54px); }
   .toasts { top: auto; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 108px); }
 }
 

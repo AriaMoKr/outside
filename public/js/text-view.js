@@ -224,7 +224,7 @@ export class TextView {
       if (!this._self && this.el.scrollTop !== this._selfTop) this._moved = true;
       this._restSoon();
     }, { passive: true });
-    // What Tab or a jump scrolls to stops below the sticky toolbar, not under it.
+    // What Tab scrolls to stops below the sticky toolbar, not under it (and _scrollTo sets it at once).
     const bar = this.$('.tv-bar');
     new ResizeObserver(() => this.el.style.setProperty('--tv-bar-h', `${bar.offsetHeight}px`)).observe(bar);
     this.el.addEventListener('keydown', (e) => {
@@ -305,10 +305,13 @@ export class TextView {
     this.el.hidden = false;
     this.onOpen();
     this._style();
-    // The toolbar's height now, not at the next frame (its observer's), so the first scroll clears it.
-    this.el.style.setProperty('--tv-bar-h', `${this.$('.tv-bar').offsetHeight}px`);
     this._show(this.book.place, { smooth: false });
     this.$('.tv-title').focus({ preventScroll: true });
+    // Once it is drawn, the place again (a late change of layout must not leave it under the
+    // toolbar), unless the reader has scrolled meanwhile.
+    requestAnimationFrame(() => {
+      if (this._open && !this._moved && !this._self && this._at) this._scrollTo(this._at, false);
+    });
   }
 
   /**
@@ -383,20 +386,30 @@ export class TextView {
     this._header();
     this._at = [at[0], at[1], at[2] ?? 0];
     this._moved = false;
-    const target = at[1] >= 0 || at[0] !== partSections(part)[0] ? this.el.querySelector(`[data-s="${at[0]}"][data-b="${at[1]}"]`) : null;
+    this._scrollTo(this._at, smooth);
+  }
+
+  /**
+   * Scrolls the place to just below the toolbar: the line with its word (a page of the 3D book
+   * may begin in the middle of a paragraph), or its block, or (a part's heading) the top.
+   */
+  _scrollTo(at, smooth) {
+    // The toolbar's height now, measured: its observer has not run yet when the view has just
+    // been shown (hidden, the toolbar had none), and what Tab scrolls to clears it by this.
+    const bar = this.$('.tv-bar');
+    this.el.style.setProperty('--tv-bar-h', `${bar.offsetHeight}px`);
+    const target = at[1] >= 0 || at[0] !== partSections(this.part)[0] ? this.el.querySelector(`[data-s="${at[0]}"][data-b="${at[1]}"]`) : null;
     const smoothly = !!target && smooth && !this.book.reduceMotion;
     if (smoothly) {
       this._self = true; // a while: its scroll events until it rests are its own
       this._restSoon();
     }
-    // To the line with the place's word (a page of the 3D book may begin in the middle of a paragraph).
     let y = 0;
     if (target) {
-      const word = this._at[2] > 0 ? wordStarts(target)[this._at[2]] : null;
-      y = word ? this._rangeRect(word).top : target.getBoundingClientRect().top;
-      y += this.el.scrollTop - this.$('.tv-bar').getBoundingClientRect().bottom;
+      const word = at[2] > 0 ? wordStarts(target)[at[2]] : null;
+      y = (word ? this._rangeRect(word).top : target.getBoundingClientRect().top) + this.el.scrollTop - bar.getBoundingClientRect().bottom;
     }
-    this.el.scrollTo({ top: Math.max(0, y), behavior: smoothly ? 'smooth' : 'auto' });
+    this.el.scrollTo({ top: Math.max(0, Math.round(y)), behavior: smoothly ? 'smooth' : 'auto' });
     this._selfTop = smoothly ? null : this.el.scrollTop;
   }
 

@@ -128,6 +128,7 @@ export class Overlay {
     this.view.append(this.hint, this.buttons, this.dot, this.toasts, this.bookText);
     this._how = 'mouse';
     this._reading = false;
+    addEventListener('resize', () => this._placeHint());
   }
 
   /** @param {'mouse'|'touch'|'gamepad'} how */
@@ -147,6 +148,7 @@ export class Overlay {
     this.root.classList.toggle('reading', on);
     this.read.textContent = on ? 'Put the book down' : 'Read the book';
     this.textView.hidden = this.front.hidden = !on;
+    this._placeHint();
     if (on) this._showHint(8);
     else this.hideHint();
   }
@@ -178,8 +180,34 @@ export class Overlay {
   _showHint(seconds = 12) {
     this.hint.classList.remove('gone');
     this.hint.textContent = (this._reading ? READING : HINTS)[this._how];
+    this._placeHint();
     clearTimeout(this._hintTimer);
     if (seconds) this._hintTimer = setTimeout(() => this.hideHint(), seconds * 1000);
+  }
+
+  /**
+   * Keeps the hint clear of the buttons at the foot (Text view, Wave, Fullscreen, Enter VR…): in
+   * the middle where it fits beside them, else in the space beside them (wrapping within it),
+   * else above them (a narrow screen). Again whenever they or the window change.
+   */
+  _placeHint() {
+    const s = this.hint.style;
+    s.left = s.bottom = s.maxWidth = '';
+    let left = Infinity, top = Infinity;
+    for (const b of this.buttons.children) {
+      if (b.hidden) continue;
+      const r = b.getBoundingClientRect();
+      left = Math.min(left, r.left);
+      top = Math.min(top, r.top);
+    }
+    const h = this.hint.getBoundingClientRect();
+    const gap = 12, margin = 16;
+    if (left === Infinity || h.right <= left - gap || h.bottom <= top - 4) return;
+    const room = left - gap - margin;
+    if (room >= 260) {
+      s.left = `${margin + room / 2}px`;
+      s.maxWidth = `${room}px`;
+    } else s.bottom = `${innerHeight - top + 8}px`;
   }
 
   hideHint() {
@@ -213,6 +241,7 @@ export class Overlay {
 
   showVR(onClick) {
     this.vr.hidden = false;
+    this._placeHint();
     this.vr.addEventListener('click', onClick);
   }
 
@@ -220,11 +249,13 @@ export class Overlay {
   setInvite(link) {
     this._inviteLink = link;
     this.invite.hidden = !link;
+    this._placeHint();
   }
 
   /** In a shared session (together.js active), or not: the Wave button shows while one is. */
   setTogether(active) {
     this.wave.hidden = !active;
+    this._placeHint();
   }
 
   async _copyInvite() {
@@ -240,11 +271,13 @@ export class Overlay {
 
   showFullscreen(onClick) {
     this.fullscreen.hidden = false;
+    this._placeHint();
     this.fullscreen.addEventListener('click', onClick);
   }
 
   setFullscreen(on) {
     this.fullscreen.textContent = on ? '✕ Exit fullscreen' : 'Fullscreen';
+    this._placeHint();
     this.fullscreen.classList.toggle('on', on);
   }
 
