@@ -2,8 +2,10 @@
 // carries on from how they went through it (the hallway's link: where in the doorway, which way
 // they faced); behind them the doorway glows and shows the hall, and going back through it leads
 // back to the hallway, in front of that door. In the garden: a lawn, a stream that runs under a
-// foot bridge into a pond, a trail over the bridge to a bench, and on the bench a book to read.
-// The shared session (together.js) comes out here too, and goes back in.
+// foot bridge into a pond, a trail over the bridge to a bench, and on the bench a book to read,
+// with vrlbry's book controls (book.js), its text view (text-view.js) and the browser's Back
+// along its links (back-history.js). The shared session (together.js) comes out here too, and
+// goes back in.
 import * as THREE from 'three';
 import { DOOR, doorCrossed, doorSpawn, layoutGarden, surfaceAt } from './garden.js';
 import { HAZE, buildGarden } from './scene.js';
@@ -18,7 +20,10 @@ import { ACCESS_KEY, Vignette, eyeLift, loadAccess, motionQuery, reduceMotion, s
 import { Together } from './together.js';
 import { Book } from './book.js';
 import { readingText } from './pages.js';
-import { BOOK_TITLE } from './reading.js';
+import { readerSettings } from './reader.js';
+import { TextView } from './text-view.js';
+import { BackHistory } from './back-history.js';
+import { BOOK_SUBTITLE, BOOK_TITLE, COLOPHON, PIECES } from './reading.js';
 import { renderPreview, previewView } from './preview.js';
 import { roomFromUrl } from 'layersharedsession/room.js';
 
@@ -134,7 +139,24 @@ let reduce = reduceMotion(access, motion);
 const blink = (seconds) => (reduce ? 0.08 : seconds);
 const fade = new Fade(camera, 1);
 const vignette = new Vignette(camera, access.vignette);
-const book = new Book({ scene, place: L.book, anisotropy, light: garden.lightColor });
+// The reader's choices for the book (reader.js): its text size, theme, one page or two, its size
+// and distance in VR, whether it opens as text, and where they are reading. This page's own.
+const BOOK_KEY = 'outside.book';
+function loadBook() {
+  try {
+    return readerSettings(JSON.parse(localStorage.getItem(BOOK_KEY) ?? 'null'));
+  } catch {
+    return readerSettings(null); // no storage (a private window, blocked site data): they last this visit
+  }
+}
+const book = new Book({ scene, place: L.book, anisotropy, light: garden.lightColor, settings: loadBook() });
+book.onSettings = () => {
+  try {
+    localStorage.setItem(BOOK_KEY, JSON.stringify(book.settings));
+  } catch {
+    // As above.
+  }
+};
 
 // Out of the door: where the visitor went through, turned as they were (and looking as high).
 function arrivalPose() {
@@ -210,6 +232,16 @@ controls.onSeat = (seated) => {
 // The overlay's buttons do as the bench and the book do in 3D: on a screen, one walks there first.
 overlay.onBench = (sit) => (sit ? controls.onBench() : controls.stand());
 overlay.onRead = () => (book.isOpen ? closeBook() : controls.sit(() => openBook()));
+// The browser's Back, with the book open, goes back along the contents' links, then puts it down.
+const backHistory = new BackHistory({
+  history,
+  load: performance.timeOrigin,
+  onBack: (depth) => book.backTo(depth),
+  onAway: () => closeBook({ away: true }),
+});
+addEventListener('popstate', (e) => backHistory.popstate(e.state));
+book.history = backHistory;
+book.onTrail = (depth) => backHistory.pushed(depth);
 function openBook() {
   if (book.isOpen) return;
   camera.updateMatrixWorld();
@@ -218,18 +250,87 @@ function openBook() {
   if (!renderer.xr.isPresenting) controls.pitch = pitch;
   controls.book = book;
   overlay.setReading(true);
+  backHistory.bookOut();
+  if (book.settings.textView) textView.open(); // "Open it as text" (a screen only)
 }
-function closeBook() {
+/** Puts the book down; away: by the browser's Back, whose entries are gone already. */
+function closeBook({ away = false } = {}) {
   if (!book.isOpen) return;
   book.close();
   controls.book = null;
   overlay.setReading(false);
   overlay.hideBookText();
+  textView.close({ keepPlace: false }); // focus back to Read the book
+  if (!away) backHistory.cleared();
+}
+/** B, Y, Backspace: one step back in the book (its contents, the links followed), else it is put down. */
+function back() {
+  if (!book.back()) closeBook();
 }
 controls.onPage = (side) => book.turn(side);
 controls.onCloseBook = closeBook;
-// The pages open, as words a screen reader reaches (and says as they turn).
-book.onShow = (pages) => overlay.showBookText(BOOK_TITLE, readingText(book.pages, pages));
+controls.onBookPress = (hit) => book.press(hit);
+controls.onBookAction = (action, value) => {
+  if (action === 'font') book.changeFont(value);
+  else if (action === 'theme') book.cycleTheme();
+  else if (action === 'contents') book.toggleContents();
+  else if (action === 'contents-move') book.moveContents(value);
+  else if (action === 'enter') book.chooseContents();
+  else if (action === 'pages') book.togglePages();
+  else if (action === 'textView') textView.toggle();
+  else if (action === 'front') book.toFront();
+  else if (action === 'back') back();
+  else if (action === 'escape') {
+    if (book.contents.visible) book.toggleContents(false);
+    else closeBook();
+  } else if (action === 'distance') book.adjustDistance(value);
+  else if (action === 'scale') book.adjustScale(value);
+};
+controls.onGrab = (hand, on) => (on ? book.grab(hand.controller) : book.release(hand.controller));
+book.onClose = closeBook;
+book.onHold = (pitch) => {
+  if (!renderer.xr.isPresenting) controls.pitch = pitch;
+};
+/** The open book's pages, as words a screen reader reaches (and says as they turn), unless the text view shows them. */
+function showBookText() {
+  if (book.isOpen && !textView.isOpen) overlay.showBookText(BOOK_TITLE, readingText(book.pages, book.readingPages()));
+}
+book.onShow = () => {
+  showBookText();
+  textView.follow();
+};
+// The text view (T, or the overlay's Text view): the book's words as a page of text, on a screen.
+const textView = new TextView({
+  root: document.getElementById('view-overlay'),
+  reader: book,
+  text: { title: BOOK_TITLE, subtitle: BOOK_SUBTITLE, pieces: PIECES, colophon: COLOPHON },
+  putDown: () => closeBook(),
+  back,
+  presenting: () => renderer.xr.isPresenting,
+  onOpen: () => overlay.hideBookText(), // the view has them now
+  onClose: showBookText,
+  returnFocus: () => (book.isOpen ? overlay.textView : overlay.read),
+});
+overlay.onTextView = () => textView.toggle();
+overlay.onFront = () => book.toFront();
+overlay.onReset = resetView;
+overlay.onTextViewPref = (on) => {
+  book.settings.textView = on;
+  book.onSettings();
+};
+overlay.setTextViewPref(book.settings.textView);
+
+/**
+ * Back to the start (Home, Reset view, as in vrlbry): the book put down, as large and (in VR) as
+ * far as at first, and the visitor at the door, looking out.
+ */
+function resetView() {
+  closeBook();
+  book.resetHold();
+  const s = doorSpawn(L);
+  controls.resetTo(s.x, s.z, s.yaw);
+}
+controls.onHome = resetView;
 
 let active = false;
 controls.onActivity = () => {
@@ -464,10 +565,14 @@ renderer.setAnimationLoop(() => {
   renderer.render(scene, camera);
 });
 
+let refitTimer = 0;
 addEventListener('resize', () => {
   if (renderer.xr.isPresenting) return;
   fitCamera();
   renderer.setSize(innerWidth, innerHeight);
+  // An open book follows a while later: one page upright, two across ('auto'), held where it fits.
+  clearTimeout(refitTimer);
+  refitTimer = setTimeout(() => book.refit(), 300);
 });
 
 fade.to(0, blink(0.8));
@@ -475,7 +580,7 @@ fade.to(0, blink(0.8));
 // For scripted testing. A hidden page gets no animation frames: drive it with tick().
 window.__outside = {
   THREE, renderer, scene, camera, rig, garden, layout: L, controls, overlay, fade, vignette, xrDevice, go, enterVR, together, book, way, visit,
-  openBook, closeBook, setAccess,
+  textView, backHistory, openBook, closeBook, resetView, setAccess,
   /** The accessibility settings now, and whether motion is reduced. */
   get access() {
     return { ...access, reduce };

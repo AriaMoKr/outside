@@ -3,11 +3,12 @@
 // WebGL), and what the garden offers in 3D as real controls as well: sitting on the bench and
 // getting up, reading the book (from anywhere: one walks to the bench first, as in 3D), starting or
 // leaving a shared session, and Settings, the panel on the wall's choices: motion (common/access.js,
-// for a screen too), how to move and turn in VR, the comfort vignette and seated mode. The card is
-// the page's <nav>; the view is its <main>, with a hint on how to move (or, with the book open, how
-// to read), the Fullscreen and Enter VR buttons, Wave and Copy invite link while in a shared
-// session, the dot a gamepad aims with, short messages, and the open book's words for a screen
-// reader.
+// for a screen too), how to move and turn in VR, the comfort vignette and seated mode; and, as in
+// vrlbry, "Open the book as text", "Bring the book in front of me" and "Reset view". While the book
+// is open, "Text view" opens its words as a page of text (text-view.js). The card is the page's
+// <nav>; the view is its <main>, with a hint on how to move (or, with the book open, how to read),
+// the Fullscreen and Enter VR buttons, Wave and Copy invite link while in a shared session, the
+// dot a gamepad aims with, short messages, and the open book's words for a screen reader.
 
 function el(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -26,9 +27,9 @@ const HINTS = {
   gamepad: 'Right stick to look · left stick to walk · A on the bench to sit and read',
 };
 const READING = {
-  touch: 'Tap a page to turn it · tap off the book to put it down',
-  mouse: 'Click a page, or ← →, to turn it · Esc puts the book down',
-  gamepad: 'A on a page turns it · B puts the book down',
+  touch: 'Tap or swipe a page to turn it · pinch it nearer · tap off the book to put it down',
+  mouse: 'Click a page or ← → to turn it · C contents · T text view · Esc puts it down',
+  gamepad: 'A on a page, or LB RB, turns it · X contents · B goes back, then puts it down',
 };
 
 export class Overlay {
@@ -53,11 +54,19 @@ export class Overlay {
     this.onNav = () => {};
     /** (change) accessibility settings changed (common/access.js), such as { motion: 'reduce' } or { seated: true }. */
     this.onAccess = () => {};
+    /** The open book's words as a page of text (text-view.js); the book back in front of the eyes; back to the start. */
+    this.onTextView = () => {};
+    this.onFront = () => {};
+    this.onReset = () => {};
+    /** (on) "Open the book as text" (book.js settings.textView). */
+    this.onTextViewPref = () => {};
     this._seated = false;
     this.bench = el('button', { class: 'chip', type: 'button' }, 'Sit on the bench');
     this.bench.addEventListener('click', () => this.onBench(!this._seated));
     this.read = el('button', { class: 'chip', type: 'button' }, 'Read the book');
     this.read.addEventListener('click', () => this.onRead());
+    this.textView = el('button', { class: 'pill', type: 'button', hidden: '', title: 'The open book as a page of text (T)' }, 'Text view');
+    this.textView.addEventListener('click', () => this.onTextView());
     this.session = el('button', { class: 'chip', type: 'button' }, 'Start shared session');
     this.session.addEventListener('click', () => this.onSession());
     this.settingsToggle = el('button', { class: 'chip', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'settings' }, 'Settings');
@@ -76,11 +85,19 @@ export class Overlay {
       this.choices.set(key, input);
       return el('label', {}, input, label);
     };
+    this.asText = el('input', { type: 'checkbox', name: 'textView' });
+    this.asText.addEventListener('change', () => this.onTextViewPref(this.asText.checked));
+    this.front = el('button', { class: 'chip', type: 'button', hidden: '' }, 'Bring the book in front of me');
+    this.front.addEventListener('click', () => this.onFront());
+    const reset = el('button', { class: 'chip', type: 'button', title: 'Home: the book put down, its size and distance as at first, and you at the door' }, 'Reset view');
+    reset.addEventListener('click', () => this.onReset());
     this.settings = el('div', { class: 'settings', id: 'settings', hidden: '' },
       choice('motion', 'Motion', [['system', 'System'], ['reduce', 'Less'], ['full', 'Full']], (key, value) => this.onAccess({ [key]: value })),
       choice('move', 'Move in VR', [['smooth', 'Smooth'], ['teleport', 'Teleport']], (key, value) => this.onNav(key, value)),
       choice('turn', 'Turn in VR', [['snap', 'Snap'], ['smooth', 'Smooth']], (key, value) => this.onNav(key, value)),
-      el('fieldset', {}, el('legend', {}, 'In VR'), toggle('vignette', 'Comfort vignette'), toggle('seated', 'Seated mode')));
+      el('fieldset', {}, el('legend', {}, 'In VR'), toggle('vignette', 'Comfort vignette'), toggle('seated', 'Seated mode')),
+      el('fieldset', {}, el('legend', {}, 'The book'), el('label', {}, this.asText, 'Open it as text')),
+      el('div', { class: 'actions' }, this.front, reset));
     this.settingsToggle.addEventListener('click', () => {
       const open = this.settings.hidden;
       this.settings.hidden = !open;
@@ -101,7 +118,7 @@ export class Overlay {
     this.wave = el('button', { class: 'pill', type: 'button', hidden: '' }, 'Wave');
     this.onWave = () => {};
     this.wave.addEventListener('click', () => this.onWave());
-    this.buttons = el('div', { class: 'buttons' }, this.wave, this.invite, this.fullscreen, this.vr);
+    this.buttons = el('div', { class: 'buttons' }, this.textView, this.wave, this.invite, this.fullscreen, this.vr);
     this.dot = el('div', { class: 'aim', hidden: '', 'aria-hidden': 'true' });
     this.toasts = el('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
     // The open book's words for a screen reader, out of sight (the 3D book is what one sees): while
@@ -119,13 +136,24 @@ export class Overlay {
     this._showHint();
   }
 
-  /** The book open (or put down): the hint says how to read it, while it is. */
+  /**
+   * The book open (or put down): the hint says for a while how to read it; Text view (by the
+   * buttons at the foot) and Bring the book in front of me show; and, as in vrlbry, the card goes
+   * out of the book's way, coming back when the keyboard goes into it (style.css).
+   */
   setReading(on) {
     if (this._reading === on) return;
     this._reading = on;
+    this.root.classList.toggle('reading', on);
     this.read.textContent = on ? 'Put the book down' : 'Read the book';
-    if (on) this._showHint(0);
+    this.textView.hidden = this.front.hidden = !on;
+    if (on) this._showHint(8);
     else this.hideHint();
+  }
+
+  /** "Open it as text", as it is now. */
+  setTextViewPref(on) {
+    this.asText.checked = on;
   }
 
   /** Sitting on the bench, or not: the bench's button sits down, or gets up. */
@@ -155,7 +183,6 @@ export class Overlay {
   }
 
   hideHint() {
-    if (this._reading) return;
     this.hint.classList.add('gone');
   }
 

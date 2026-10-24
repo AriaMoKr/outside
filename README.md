@@ -23,7 +23,7 @@ As in the hallway:
 |---|---|---|---|---|
 | Desktop | drag | WASD or arrows (Shift runs), Q/E or ←/→ turn, click the ground | click the door, or walk into it | the **Wave** button |
 | Phone | drag | tap the ground | tap the door | the **Wave** button |
-| Headset | your head | left stick walks (or aims a teleport), right stick turns, trigger at the ground teleports | trigger (or pinch) at the door, or step through it | squeeze a grip |
+| Headset | your head | left stick walks (or aims a teleport), right stick turns, trigger at the ground teleports | trigger (or pinch) at the door, or step through it | squeeze a grip (with the book open, a grip moves it instead) |
 | Gamepad | right stick | left stick (click it in to hurry) | aim the dot at the door and press A, or walk into it | the **Wave** button |
 
 A walk to somewhere across the water goes over the bridge, and round the pond. You can't walk
@@ -54,22 +54,54 @@ Choose the bench (click or tap it, A on a gamepad, or the trigger in VR) to sit 
 pond and the house. On a screen you walk there first; in VR you are on it at once. Beside you lies
 a book. Choose it, or **Read the book**, and it opens in front of you.
 
+The open book reads as a book does in [vrlbry](https://github.com/AriaMoKr/vrlbry), with its
+controls. Under the pages is vrlbry's toolbar: where you are and a slider to go anywhere in the
+book, ◀ ▶, **Contents** (beside the pages, or over them when there is no room), **A−** and
+**A+** (the text is set in pages again at the new size, and you stay at the same words), **1 page**
+or **2 pages**, **Theme** (paper, sepia or night), ✕ to put the book down, and **↩ Back** once
+you have followed a link. The entries on the book's contents page are links: choose one and you go
+to its piece, and Back (the toolbar's, Backspace, B, or the browser's own) brings you back along
+them before it puts the book down. You can bring the book nearer or take it farther, make it
+larger or smaller in VR, and move it with a grip there. If it gets out of sight, bring it back in
+front of you. Its text size, theme, one page or two, its size (and, in VR, its distance), and where
+you were reading are kept in this browser (`localStorage`, `outside.book`), so it opens where you
+left it.
+
+| | Desktop | Phone | Headset | Gamepad |
+|---|---|---|---|---|
+| Turn a page | click the page, or ← → Space Page Up/Down | tap the page, or swipe it quickly | trigger at the page, or push the right stick left or right | A on the page, LB RB, or the D-pad ← → |
+| Text size, theme, contents | + − · N · C, or the toolbar | the toolbar | the toolbar | D-pad ↑ ↓ · Y · X |
+| Go to a piece | click it in the contents (↑ ↓ Enter in it) or on the contents page | tap it | trigger on it | A on it |
+| One page or two | P, or the toolbar | the toolbar (one page while the phone is upright) | the toolbar | the toolbar |
+| Read as text | T, or **Text view** | **Text view** | | |
+| Book distance / size | the mouse wheel | pinch | right stick up/down · left stick up/down · grip to move it | the triggers |
+| Back (along the links, then put down) | Backspace, ↩ Back, or the browser's Back | ↩ Back, or the back gesture | B or Y | B |
+| Put the book down | Esc, ✕, or click off the book | ✕, or tap off the book | ✕, or B or Y | ✕, or B |
+| Book out of sight | F, or **Bring the book in front of me** (in Settings) | drag back to it, or tap off it and read it again | press a thumbstick | press the right stick |
+| Back to the start | Home, or **Reset view** (in Settings) | **Reset view** (in Settings) | | |
+| Get up | WASD | tap the ground | left stick, once the book is down | left stick |
+
+**Text view** (or T) shows the part of the book you are reading (the title page with the contents,
+a piece, or the sources) as an ordinary page of text over the garden, as vrlbry's does: for a
+screen reader, the keyboard, the browser's zoom or a small phone. Its toolbar has the parts before
+and after, the contents, the text size and theme, a slider for where you are, Back, and **Put the
+book down**, and its contents' links work as in the book. It keeps your place with the 3D book, to
+the word: close it (T, Esc or **Close**) and the book is open where you were reading. **Open it as
+text**, in Settings, opens the book this way every time.
+
 On a screen, the card at the top left has the garden's 3D choices as buttons too, for a keyboard
 or a screen reader: **Sit on the bench** (or **Get up**), **Read the book** (from anywhere: you
 walk to the bench first, as when you choose the book in 3D), **Start shared session** (or
 **Leave shared session**), and **Settings**: motion, how to move and turn in VR, the vignette and
-seated, as on the panel by the door. The view itself is a picture to a screen reader, named for
-what is in it. With the book open, its words are there too, out of sight: a region named for the
-book holds the pages open (the one in view, on a narrow screen), headed with where you are (*Pages
-4 and 5*), with the book's titles as headings, its paragraphs and stanzas whole even where they run
-over a page, and the contents as a list. Each turn of a page replaces it and is read out.
-
-| | Turn a page | Put the book down | Get up |
-|---|---|---|---|
-| Desktop | click the page, or ← →, Space, Page Up/Down | Esc, or click off the book | WASD |
-| Phone | tap the page (a page at a time, upright) | tap off the book | tap the ground |
-| Headset | trigger at the page, or push the right stick left or right | B or Y | left stick |
-| Gamepad | A on the page | B | left stick |
+seated, as on the panel by the door; for the book, **Open it as text**, **Bring the book in front
+of me** while it is open, and **Reset view** (as Home: the book put down, its size and distance as
+they were at first, and you at the door). While the book is open the card goes out of its way, as
+vrlbry's does, and comes back when the keyboard goes into it; **Text view** is by the buttons at
+the foot. The view itself is a picture to a screen reader, named for what is in it. With the book
+open, its words are there too, out of sight: a region named for the book holds the pages open (the
+one in view, on a narrow screen), headed with where you are (*Pages 4 and 5*), with the book's
+titles as headings, its paragraphs and stanzas whole even where they run over a page, and the
+contents as a list. Each turn of a page replaces it and is read out.
 
 The book is *By the Water*, a little anthology: Thoreau on the pond in *Walden*'s "The Ponds"
 (1854); Tennyson's "The Brook" (1855); Stevenson's "Where Go the Boats?" (1885); Hopkins's
@@ -146,7 +178,7 @@ carries the room into the hallway. In the hallway, those out here count as elsew
 You need Node.js 22 or newer.
 
 ```bash
-npm install     # three.js, common (the door contract, the sky, and the doorway, fade and gamepad code the hallway shares), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/
+npm install     # three.js, common (the door contract, the sky, the comfort settings, and the doorway, fade and gamepad code the hallway shares), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/
 npm start       # http://localhost:8090/
 npm test
 ```

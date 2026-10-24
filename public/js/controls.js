@@ -10,13 +10,25 @@
 //            or walk through the doorway
 // What is different outside: the ground rises and falls (and the bridge arches), so the viewer
 // stands on it; a walk to somewhere across the water goes over the bridge (garden.js route); one
-// can sit on the bench, and get up again by moving; and while the book is open (book.js) the
-// arrow keys, the right stick and a press on a page turn its pages.
+// can sit on the bench, and get up again by moving; and while the book is open (book.js) it takes
+// vrlbry's book controls (onBookPress, onBookAction):
+//   desktop: a press on a page turns it (or follows a contents entry), on its toolbar or contents
+//            uses what is there; ← → Space Page Up/Down turn, + − text size, N theme, C contents
+//            (↑ ↓ Enter in it), P one page or two, T text view, F the book in front, Backspace
+//            back, Esc closes the contents or the book; the wheel brings it nearer or farther
+//   phone:   a tap, or a quick swipe turns the page; two fingers pinch it nearer or farther
+//   gamepad: A on what the dot is on, LB RB or the D-pad ← → turn, D-pad ↑ ↓ text size, Y theme,
+//            X contents, the triggers nearer or farther, the right stick pressed the book in
+//            front, B back
+//   headset: the trigger as a press; the right stick left or right turns, up or down nearer or
+//            farther; the left stick up or down larger or smaller (walking waits until it is
+//            put down); a grip moves it; a thumbstick pressed brings it in front; B or Y back
+// Home is back to the start (onHome).
 // The viewer's body is `rig` (yaw only); the camera is its head (pitch on a screen, the headset's
 // pose in VR). Per frame nothing is allocated.
 import * as THREE from 'three';
 import { GARDEN, SEAT, castRay, clampWalk, groundAt, panelButtonAt, route } from './garden.js';
-import { firstPad, readPad } from 'common/gamepad.js';
+import { BUTTONS, firstPad, held, readPad } from 'common/gamepad.js';
 
 const LOOK = 0.0045; // radians per pixel dragged
 const WALK = 1.9, RUN = 3.8, XR_WALK = 1.8; // metres per second
@@ -36,7 +48,20 @@ const KEYS = {
   ShiftLeft: 'run', ShiftRight: 'run',
 };
 /** While the book is open: these turn its pages instead. */
-const PAGE_KEYS = { ArrowLeft: -1, ArrowRight: 1, PageUp: -1, PageDown: 1, Space: 1, Backspace: -1 };
+const PAGE_KEYS = { ArrowLeft: -1, ArrowRight: 1, PageUp: -1, PageDown: 1, Space: 1 };
+/** While the book is open: the keys for what else it does (vrlbry's), by code, as onBookAction's actions. */
+const BOOK_KEYS = { KeyC: 'contents', KeyN: 'theme', KeyP: 'pages', KeyT: 'textView', KeyF: 'front', Backspace: 'back', Escape: 'escape', Enter: 'enter', NumpadEnter: 'enter' };
+/** A gamepad's buttons while the book is open (vrlbry's), by their index in the standard mapping: [action, value]. */
+const PAD_BOOK = {
+  [BUTTONS.indexOf('x')]: ['contents'], [BUTTONS.indexOf('y')]: ['theme'],
+  [BUTTONS.indexOf('lb')]: ['turn', -1], [BUTTONS.indexOf('rb')]: ['turn', 1],
+  [BUTTONS.indexOf('left')]: ['turn', -1], [BUTTONS.indexOf('right')]: ['turn', 1],
+  [BUTTONS.indexOf('up')]: ['font', 1], [BUTTONS.indexOf('down')]: ['font', -1],
+  [BUTTONS.indexOf('rs')]: ['front'],
+};
+const PAD_LT = BUTTONS.indexOf('lt'), PAD_RT = BUTTONS.indexOf('rt');
+const WHEEL = 0.0006; // metres nearer or farther per wheel unit (vrlbry's)
+const SWIPE = { distance: 60, ms: 500 }; // a quick swipe across turns the page; a slower drag looks
 
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -67,9 +92,20 @@ export class Controls {
     /** () when the bench is chosen (sit down), and when the book is (open it). */
     this.onBench = () => {};
     this.onBook = () => {};
-    /** (side) a page of the open book was pressed: -1 back, 1 on. () close it. */
+    /** (side) a key or a stick turns a page of the open book: -1 back, 1 on. () close it. */
     this.onPage = () => {};
     this.onCloseBook = () => {};
+    /** (hit) the open book was pressed: a page, a contents entry on it, or its toolbar or contents (book.js pick, press). */
+    this.onBookPress = () => {};
+    /**
+     * (action, value) the open book's other controls: 'font' ±1, 'theme', 'contents', 'contents-move'
+     * ±1, 'enter', 'pages', 'textView', 'front', 'back', 'escape', 'distance' (metres), 'scale' (a fraction).
+     */
+    this.onBookAction = () => {};
+    /** (hand, on) a grip squeezed (or let go) in VR while the book is open: it moves with that hand. */
+    this.onGrab = () => {};
+    /** () Home: back to the start. */
+    this.onHome = () => {};
     /** (move) for a teleport or sitting down in VR: main.js blinks the view around move(), which puts the viewer there. */
     this.onTeleport = (move) => move();
     /** The first time the viewer does anything (hides the hint). */
@@ -89,6 +125,8 @@ export class Controls {
     this._pad = readPad({ axes: [], buttons: [] });
     this._padUse = false;
     this._padBack = false;
+    this._padHeld = new Array(BUTTONS.length).fill(false); // the book's buttons, held last frame
+    this._padWheel = 0; // seconds until the triggers move the book again
     this._pads = 0; // connected; none, and nothing is polled
     /** Whether a gamepad is connected. */
     this.hasPad = false;
@@ -107,7 +145,9 @@ export class Controls {
     this._cursor = '';
     this._raycaster = new THREE.Raycaster();
     this._ndc = new THREE.Vector2();
-    this._hit = { t: 0, kind: '', x: 0, y: 0, z: 0, nx: 0, ny: 0, nz: 0, u: 0, v: 0, walkable: false, side: 0 };
+    this._hit = { t: 0, kind: '', x: 0, y: 0, z: 0, nx: 0, ny: 0, nz: 0, u: 0, v: 0, walkable: false, side: 0, panel: null, el: null, page: -1, link: null };
+    this._touches = new Map(); // fingers down: pointerId → [x, y]
+    this._pinch = 0; // two fingers' distance apart, while they pinch
     this._head = new THREE.Vector3();
     this._dir = new THREE.Vector3();
     this._origin = new THREE.Vector3();
@@ -115,7 +155,8 @@ export class Controls {
     this._clamped = { x: 0, z: 0 };
     this._snapArmed = true;
     this._pageArmed = true;
-    this._closeHeld = false;
+    this._backHeld = false;
+    this._stickHeld = false;
     this._recenter = 0; // frames until VR lines the headset up with the pose it entered at
     this._entry = { x: 0, z: 0, yaw: 0 };
     camera.position.set(0, EYE, 0);
@@ -265,6 +306,22 @@ export class Controls {
     this.onSeat(false);
   }
 
+  /** Back to the start (main.js resetView): standing at (x, z), facing yaw, level; in VR the head goes there, the view blinking. */
+  resetTo(x, z, yaw) {
+    this.auto = null;
+    if (!this.renderer.xr.isPresenting) {
+      if (this.seated) this.stand();
+      this.setPose(x, z, yaw);
+      return;
+    }
+    this.onTeleport(() => {
+      this.stand();
+      this._turnAboutHead(wrapAngle(yaw - this._headYaw()));
+      this.rig.updateMatrixWorld();
+      this._moveHead(x, z);
+    });
+  }
+
   update(dt) {
     this.moveSpeed = 0;
     this.turnRate = 0;
@@ -333,7 +390,8 @@ export class Controls {
     }
     const s = readPad(pad, this._pad);
     const moving = s.moveX !== 0 || s.moveY !== 0, looking = s.lookX !== 0 || s.lookY !== 0;
-    if (moving || looking || (s.use && !this._padUse) || (s.back && !this._padBack)) {
+    const book = this._padBook(pad, dt); // the book's buttons act at once, and count as using the pad
+    if (moving || looking || book || (s.use && !this._padUse) || (s.back && !this._padBack)) {
       this._setPadActive(true);
       this.onActivity();
     }
@@ -355,14 +413,41 @@ export class Controls {
       const p = this.rig.position;
       this._move(p.x + (-sin * f + cos * r) * step, p.z + (-cos * f - sin * r) * step);
     }
-    // Buttons act once per press. B closes the book first, if it is open.
+    // Buttons act once per press. B goes back in the book first, if it is open.
     if (s.use && !this._padUse) this._useMiddle();
     if (s.back && !this._padBack) {
-      if (this.book) this.onCloseBook();
+      if (this.book) this.onBookAction('back');
       else this.onPadBack();
     }
     this._padUse = s.use;
     this._padBack = s.back;
+  }
+
+  /**
+   * A gamepad's buttons for the open book (vrlbry's: PAD_BOOK), and its triggers bringing it
+   * nearer or farther; whether any of them did something.
+   */
+  _padBook(pad, dt) {
+    let used = false;
+    for (const i in PAD_BOOK) {
+      const on = held(pad, i);
+      if (on && !this._padHeld[i] && this.book) {
+        const a = PAD_BOOK[i];
+        if (a[0] === 'turn') this.onPage(a[1]);
+        else this.onBookAction(a[0], a[1]);
+        used = true;
+      }
+      this._padHeld[i] = on;
+    }
+    // The triggers, as a wheel that repeats (vrlbry's): the right one farther, the left nearer.
+    const t = (pad.buttons[PAD_RT]?.value ?? 0) - (pad.buttons[PAD_LT]?.value ?? 0);
+    this._padWheel -= dt;
+    if (this.book && Math.abs(t) > 0.15 && this._padWheel <= 0) {
+      this.onBookAction('distance', 100 * t * WHEEL);
+      this._padWheel = 0.12;
+      used = true;
+    }
+    return used;
   }
 
   /** A on a gamepad: what the middle of the view is on, as a click there would. */
@@ -414,29 +499,37 @@ export class Controls {
     return this._pick(o.x, o.y, o.z, d.x, d.y, d.z, this._hit);
   }
 
-  /** The open book's pages first, then the garden. */
+  /** The open book first (its contents, toolbar and pages: book.js pick), then the garden. */
   _pick(ox, oy, oz, dx, dy, dz, out) {
-    const page = this.book?.pick(ox, oy, oz, dx, dy, dz);
-    if (page) {
-      out.t = page.t;
-      out.kind = 'page';
-      out.side = page.side;
-      out.x = ox + dx * page.t;
-      out.y = oy + dy * page.t;
-      out.z = oz + dz * page.t;
+    const b = this.book?.pick(ox, oy, oz, dx, dy, dz);
+    if (b) {
+      out.t = b.t;
+      out.kind = b.kind;
+      out.side = b.side;
+      out.panel = b.panel;
+      out.el = b.el;
+      out.u = b.u;
+      out.v = b.v;
+      out.page = b.page;
+      out.link = b.link;
+      out.x = ox + dx * b.t;
+      out.y = oy + dy * b.t;
+      out.z = oz + dz * b.t;
       out.nx = -dx;
       out.ny = -dy;
       out.nz = -dz;
       out.walkable = false;
       return out;
     }
+    out.panel = out.el = out.link = null;
     return castRay(this.layout, ox, oy, oz, dx, dy, dz, out);
   }
 
-  /** What could be used where a hit is: 'door', 'bench', 'book', 'page', a panel button, or null. */
+  /** What could be used where a hit is: 'door', 'bench', 'book', 'page', 'bookui' (the open book's toolbar or contents), a panel button, or null. */
   _usable(hit) {
     if (!hit) return null;
     if (hit.kind === 'panel') return panelButtonAt(hit.u, hit.v);
+    if (hit.kind === 'bookui') return hit.el ? 'bookui' : null;
     if (hit.kind === 'door' || hit.kind === 'page' || hit.kind === 'book' || hit.kind === 'bench') return hit.kind;
     return null;
   }
@@ -457,15 +550,17 @@ export class Controls {
     this.hover = usable;
     this.hoverDoor = usable === 'door';
     this.hoverPanel = hit?.kind === 'panel' ? usable : null;
+    // The open book's toolbar and contents light what is pointed at, and a contents entry its band.
+    this.book?.setHover(hit && (hit.kind === 'page' || hit.kind === 'bookui') ? hit : null);
   }
 
-  /** Uses what a hit is on: the door, a panel button, the bench, the book, a page, or walks to the ground. */
+  /** Uses what a hit is on: the door, a panel button, the bench, the book, the open book, or walks to the ground. */
   _use(hit, how) {
     if (!hit) {
       if (this.book) this.onCloseBook();
       return;
     }
-    if (hit.kind === 'page') this.onPage(hit.side);
+    if (hit.kind === 'page' || hit.kind === 'bookui') this.onBookPress(hit);
     else if (this.book && hit.kind !== 'panel') this.onCloseBook(); // a press off the book puts it down
     else if (hit.kind === 'door') this.onDoor(how);
     else if (hit.kind === 'panel') this._press(panelButtonAt(hit.u, hit.v));
@@ -482,18 +577,51 @@ export class Controls {
     this._use(this._pickScreen(clientX, clientY), 'screen');
   }
 
+  /** How far apart two fingers are. */
+  _pinchDistance() {
+    let a = null, d = 0;
+    for (const f of this._touches.values()) {
+      if (a) d = Math.hypot(f[0] - a[0], f[1] - a[1]);
+      else a = f;
+    }
+    return d;
+  }
+
   _bindDom() {
     const el = this.dom;
     el.addEventListener('pointerdown', (e) => {
       this._setPadActive(false);
-      if (this._down || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      this._down = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, touch: e.pointerType !== 'mouse', moved: false };
+      if (e.pointerType === 'touch') {
+        this._touches.set(e.pointerId, [e.clientX, e.clientY]);
+        if (this._touches.size === 2) {
+          // A second finger: a pinch, so the first one's touch is no tap.
+          this._pinch = this._pinchDistance();
+          this._down = null;
+          return;
+        }
+      }
+      if (this._down || this._touches.size > 1 || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      this._down = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, touch: e.pointerType !== 'mouse', moved: false, t: performance.now(), yaw: this.yaw, pitch: this.pitch };
       el.setPointerCapture?.(e.pointerId);
       this.onActivity();
     });
     el.addEventListener('pointermove', (e) => {
       if (e.pointerType === 'mouse') this._mouse = { x: e.clientX, y: e.clientY };
       if (e.movementX || e.movementY) this._setPadActive(false);
+      const f = this._touches.get(e.pointerId);
+      if (f) {
+        f[0] = e.clientX;
+        f[1] = e.clientY;
+        if (this._touches.size === 2) {
+          // Two fingers pinch the open book nearer (apart) or farther (together), as the wheel does.
+          const d = this._pinchDistance();
+          if (this.book && this._pinch && Math.abs(d - this._pinch) > 4) {
+            this.onBookAction('distance', (this._pinch - d) * 2 * WHEEL);
+            this._pinch = d;
+          }
+          return;
+        }
+      }
       const d = this._down;
       if (!d || d.id !== e.pointerId) return;
       const dx = e.clientX - d.lx, dy = e.clientY - d.ly;
@@ -508,10 +636,23 @@ export class Controls {
       if (this.auto && !this.auto.then) this.auto = null;
     });
     const end = (e) => {
+      this._touches.delete(e.pointerId);
+      if (this._touches.size < 2) this._pinch = 0;
       const d = this._down;
       if (!d || d.id !== e.pointerId) return;
       this._down = null;
-      if (e.type === 'pointerup' && !d.moved) this._tap(e.clientX, e.clientY);
+      if (e.type !== 'pointerup') return;
+      if (!d.moved) this._tap(e.clientX, e.clientY);
+      else if (this.book && d.touch) {
+        // A quick swipe across turns the open book's page (vrlbry's), the view left as it was; a
+        // slower drag looks about.
+        const dx = e.clientX - d.x, dy = e.clientY - d.y;
+        if (Math.abs(dx) > SWIPE.distance && Math.abs(dx) > Math.abs(dy) * 1.5 && performance.now() - d.t < SWIPE.ms) {
+          this.yaw = d.yaw;
+          this.pitch = d.pitch;
+          this.onPage(dx < 0 ? 1 : -1);
+        }
+      }
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
@@ -519,16 +660,34 @@ export class Controls {
       if (e.pointerType === 'mouse') this._mouse = null;
     });
     el.addEventListener('contextmenu', (e) => e.preventDefault());
+    // The wheel brings the open book nearer or farther (vrlbry's).
+    el.addEventListener('wheel', (e) => {
+      if (!this.book) return;
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 600 : 1; // lines, pages
+      this.onBookAction('distance', e.deltaY * unit * WHEEL);
+    }, { passive: false });
     window.addEventListener('keydown', (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       // The overlay's own controls keep their keys: a radio button its arrows (as the hallway's
-      // name field keeps its typing), and a button the Space that presses it.
-      if (e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
-      if (e.code === 'Space' && e.target?.closest?.('button, a[href]')) return;
+      // name field keeps its typing), and a button the Space or Enter that presses it; and so
+      // does the text view (data-own-keys).
+      if (e.target?.closest?.('input, textarea, select, [contenteditable], [data-own-keys]')) return;
+      if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') && e.target?.closest?.('button, a[href]')) return;
+      if (e.code === 'Home') {
+        e.preventDefault();
+        this.onHome();
+        return;
+      }
       if (this.book) {
-        if (e.code === 'Escape') {
-          this.onCloseBook();
+        // vrlbry's keys for the open book: what else it does, the text size, the contents' entries.
+        const action = BOOK_KEYS[e.code] ?? (e.key === '+' || e.key === '=' || e.key === '-' ? 'font' : e.code === 'ArrowUp' || e.code === 'ArrowDown' ? 'contents-move' : null);
+        if (action) {
           e.preventDefault();
+          if (!e.repeat || action === 'contents-move') {
+            this.onBookAction(action, action === 'font' ? (e.key === '-' ? -1 : 1) : e.code === 'ArrowUp' ? -1 : 1);
+          }
+          this.onActivity();
           return;
         }
         if (e.code in PAGE_KEYS) {
@@ -582,7 +741,7 @@ export class Controls {
       const reticle = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ color: 0xfff0d6, transparent: true, opacity: 0.85, depthWrite: false }));
       reticle.visible = false;
       this.scene.add(reticle);
-      const hand = { controller, laser, tip, reticle, source: null, hit: { ...this._hit }, last: null, aiming: false };
+      const hand = { controller, laser, tip, reticle, source: null, hit: { ...this._hit }, last: null, aiming: false, backHeld: false, stickHeld: false };
       controller.addEventListener('connected', (e) => {
         hand.source = e.data;
       });
@@ -593,7 +752,12 @@ export class Controls {
         laser.visible = reticle.visible = false;
       });
       controller.addEventListener('select', () => this._xrSelect(hand));
-      controller.addEventListener('squeezestart', () => this.onSqueeze(hand));
+      // A grip moves the open book (vrlbry's); otherwise it waves.
+      controller.addEventListener('squeezestart', () => {
+        if (this.book) this.onGrab(hand, true);
+        else this.onSqueeze(hand);
+      });
+      controller.addEventListener('squeezeend', () => this.onGrab(hand, false));
       this.rig.add(controller);
       this.hands.push(hand);
     }
@@ -644,21 +808,32 @@ export class Controls {
       if (this._entry.seated) this._seat();
       else this.setEyeLift(this.eyeLift); // up at once in seated mode, not rising into it
     }
-    // The sticks: the right one turns (or, reading, turns pages), the left one walks or aims a teleport.
+    // The sticks: the right one turns, the left one walks or aims a teleport. Reading (vrlbry's), the
+    // right one turns pages (left, right) and brings the book nearer or farther (up, down), the
+    // left one makes it larger or smaller; walking waits until it is put down.
     for (const h of this.hands) {
       const pad = h.source?.gamepad;
       if (!pad || pad.axes.length < 2) continue;
       const ax = pad.axes.length >= 4 ? pad.axes[2] : pad.axes[0];
       const ay = pad.axes.length >= 4 ? pad.axes[3] : pad.axes[1];
-      if (h.source.handedness === 'right') {
-        if (this.book) this._pageStick(ax);
-        else this._turnStick(ax, dt);
-      } else if (this.move === 'teleport') this._teleportStick(h, ay);
+      const right = h.source.handedness === 'right';
+      if (this.book) {
+        h.aiming = false;
+        if (right) {
+          this._pageStick(ax);
+          if (Math.abs(ay) > 0.3) this.onBookAction('distance', ay * 0.4 * dt);
+        } else if (Math.abs(ay) > 0.3) this.onBookAction('scale', -ay * 0.8 * dt);
+      } else if (right) this._turnStick(ax, dt);
+      else if (this.move === 'teleport') this._teleportStick(h, ay);
       else this._walkStick(ax, ay, dt);
-      // B or Y puts the book down.
-      const close = !!this.book && (pad.buttons[5]?.pressed || pad.buttons[4]?.pressed && h.source.handedness === 'left');
-      if (close && !this._closeHeld) this.onCloseBook();
-      this._closeHeld = !!close;
+      // B or Y goes back in the book (the contents, the links followed, then it is put down); a
+      // thumbstick pressed brings it in front.
+      const back = !!this.book && !!pad.buttons[5]?.pressed;
+      if (back && !h.backHeld) this.onBookAction('back');
+      h.backHeld = back;
+      const stick = !!this.book && !!pad.buttons[3]?.pressed;
+      if (stick && !h.stickHeld) this.onBookAction('front');
+      h.stickHeld = stick;
     }
     this.rig.updateMatrixWorld();
     // Stand on the ground under the head (its height above the rig is the headset's own), raised in seated mode.

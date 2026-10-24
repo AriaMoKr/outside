@@ -41,6 +41,10 @@ a { color: var(--accent); }
 .way-back:hover { border-color: var(--accent); color: var(--accent); }
 .tagline { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
 .card.alone { width: min(440px, calc(100vw - 24px)); }
+/* While the book is open the card goes out of its way, as vrlbry's does (the book's toolbar does
+   what it does), and comes back when the keyboard goes into it. */
+.card { transition: opacity 0.35s ease; }
+#overlay.reading .card:not(:focus-within) { opacity: 0; pointer-events: none !important; }
 
 /* What the garden offers in 3D, as controls too: the bench, the book, the shared session, and the
    settings (motion, how to move and turn in VR, the vignette, seated). */
@@ -57,6 +61,7 @@ a { color: var(--accent); }
 .settings legend { float: left; width: 6.5em; margin-left: -6.5em; padding: 0; color: var(--muted); font-size: 13px; }
 .settings label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
 .settings input { margin: 0; accent-color: var(--accent); }
+.settings .actions { margin-top: 2px; }
 .no-webgl { margin: 10px 0 0; color: var(--muted); }
 
 /* How to move. */
@@ -103,10 +108,61 @@ a { color: var(--accent); }
   overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
+/* The text view (text-view.js, vrlbry's): the open book's part as a page of text, over the 3D view
+   and the card, in the book's themes (reader.js THEMES: a test keeps these the same). */
+.tv { --tv-paper: #f6efdf; --tv-ink: #231d16; --tv-link: #24508c; --tv-rule: #b9a78a; --tv-scale: 1;
+  position: fixed; inset: 0; z-index: 3; overflow-y: auto; overscroll-behavior: contain; color-scheme: light;
+  background: var(--tv-paper); color: var(--tv-ink); font-family: var(--serif); }
+.tv[data-theme="sepia"] { --tv-paper: #ecdcbc; --tv-ink: #3b2a17; --tv-link: #2c4c7c; --tv-rule: #a68a5f; }
+.tv[data-theme="night"] { --tv-paper: #24221f; --tv-ink: #d9d0c0; --tv-link: #93b4dc; --tv-rule: #5f574b; color-scheme: dark; }
+.tv:focus { outline: none; }
+.tv-bar { position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center;
+  padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
+  background: var(--tv-paper); border-bottom: 1px solid var(--tv-rule); font: 15px/1.3 var(--font); }
+.tv-bar button, .tv-parts button, .tv-bar select { font: inherit; color: var(--tv-ink); background: transparent; border: 1px solid var(--tv-rule);
+  border-radius: 8px; padding: 4px 10px; min-height: 32px; cursor: pointer; }
+.tv-bar label { display: inline-flex; align-items: center; gap: 6px; }
+.tv-size { display: inline-flex; gap: 4px; }
+.tv-bar .tv-next { margin-left: auto; } /* the parts at the toolbar's two ends */
+.tv button:disabled { cursor: default; opacity: .5; }
+.tv button:focus-visible, .tv a:focus-visible, .tv select:focus-visible, .tv input:focus-visible, .tv-title:focus-visible {
+  outline: 2px solid var(--tv-link); outline-offset: 2px; }
+.tv-where { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 180px; min-width: 0; }
+.tv-label { white-space: nowrap; }
+.tv-slider { flex: 1; min-width: 80px; accent-color: var(--tv-link); }
+/* A panel under the toolbar, over the text (its top set when shown), so the reader's place stays put. */
+.tv-toc { position: fixed; left: 0; right: 0; z-index: 2; box-sizing: border-box; width: min(70ch, 100%); max-height: 60vh; overflow-y: auto;
+  margin: 0 auto; padding: 8px 20px 12px; background: var(--tv-paper); border: 1px solid var(--tv-rule); border-top: 0;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .25); font: 16px/1.45 var(--font); }
+.tv-toc ol { list-style: none; margin: 0; padding: 0; }
+.tv-toc li { padding-block: 2px; }
+.tv-col { max-width: 70ch; margin: 0 auto; padding: 16px 20px 56px; font-size: calc(1.125rem * var(--tv-scale)); line-height: 1.6; overflow-wrap: break-word; }
+.tv-col * { scroll-margin-top: var(--tv-bar-h, 0px); } /* below the sticky toolbar (text-view.js sets it) */
+.tv a { color: var(--tv-link); text-decoration: underline; text-underline-offset: 2px; }
+.tv-title { font-size: 1.6em; line-height: 1.25; margin: .3em 0 .2em; }
+.tv-partno { margin: 0; font: 13px/1.3 var(--font); }
+.tv-parts { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin: 8px 0; font: 15px/1.3 var(--font); }
+.tv-body h2 { font-size: 1.3em; line-height: 1.3; margin: 1.4em 0 .3em; }
+.tv-body p { margin: 0 0 .8em; text-align: justify; hyphens: auto; }
+.tv-body .tv-sub, .tv-body .tv-source { font-style: italic; text-align: left; }
+.tv-body .tv-by { margin: 0; font-variant: small-caps; letter-spacing: .05em; text-align: left; }
+.tv-body .tv-source { margin-bottom: 1.4em; font-size: .9em; }
+.tv-body .tv-verse { text-align: left; hyphens: manual; }
+.tv-list { list-style: none; margin: 0 0 .8em; padding-left: 1.4em; }
+.tv-list li { margin: .2em 0; }
+@media (max-width: 640px) {
+  .tv-col { padding: 12px 14px 48px; }
+  .tv-bar { font-size: 14px; }
+  /* Two rows at 320 px: the part buttons as arrows, "Close", "Put down", no "Theme" or page label
+     (the names stay: aria-label, the slider's value) */
+  .tv-bar .tv-wide { display: none; }
+  .tv-where { flex-basis: 60px; }
+}
+
 /* Less motion (common/access.js, set on <html> by main.js): messages appear, and the hint and the
    aiming dot change, without moving. */
 .reduce-motion .toast { animation: none; }
-.reduce-motion .hint, .reduce-motion .aim { transition: none; }
+.reduce-motion .hint, .reduce-motion .aim, .reduce-motion .card { transition: none; }
 
 /* Narrow screens: the card moves out of the toasts' way. */
 @media (max-width: 560px) {
