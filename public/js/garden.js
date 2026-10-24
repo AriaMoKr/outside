@@ -37,17 +37,28 @@ export const HOUSE = { height: 4.7, windows: [-6.9, -3.7, 3.7, 6.9], window: { w
 
 /** The plaque beside the door (its centre), and the control panel on the wall the other side. */
 export const PLAQUE = { x: -1.32, y: 1.5, width: 0.6, height: 0.34 };
-export const PANEL = { x: 1.6, y: 1.38, width: 0.56, height: 0.56, depth: 0.03 };
+export const PANEL = { x: 1.6, y: 1.32, width: 0.56, height: 0.84, depth: 0.03 };
 
-/** The panel's canvas, and its buttons on it as [id, x0, y0, x1, y1] in canvas pixels (y down), as the hallway's. */
-export const PANEL_PX = { width: 512, height: 512 };
+/**
+ * The panel's canvas, and its buttons on it as [id, x0, y0, x1, y1] in canvas pixels (y down): the
+ * hallway's VR, Move and Turn, then the accessibility settings (common/access.js: motion, the
+ * vignette, seated), then the shared session.
+ */
+export const PANEL_PX = { width: 512, height: 768 };
 export const PANEL_BUTTONS = [
   ['vr', 32, 74, 480, 136],
   ['move:teleport', 160, 160, 314, 218],
   ['move:smooth', 326, 160, 480, 218],
   ['turn:snap', 160, 236, 314, 294],
   ['turn:smooth', 326, 236, 480, 294],
-  ['session', 32, 404, 480, 458],
+  ['motion:system', 160, 352, 262, 410],
+  ['motion:reduce', 270, 352, 372, 410],
+  ['motion:full', 380, 352, 480, 410],
+  ['vignette:on', 160, 428, 314, 486],
+  ['vignette:off', 326, 428, 480, 486],
+  ['seated:on', 160, 504, 314, 562],
+  ['seated:off', 326, 504, 480, 562],
+  ['session', 32, 652, 480, 706],
 ];
 
 /** The button at (u, v) on the panel (0…1 from its bottom left, as castRay reports), or null. */

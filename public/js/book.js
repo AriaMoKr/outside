@@ -202,6 +202,8 @@ export class Book {
     this.focus = 1; // on a narrow screen, the page shown: -1 left, 1 right
     this.single = false;
     this.isOpen = false;
+    /** Less motion (common/access.js): a page turns, and a narrow screen goes to the other page, at once. */
+    this.reduceMotion = false;
     this._cache = new Map(); // page index → texture
     this._turning = null; // { t, dir, from, to }
     this._slide = 0; // the open book's offset, while sliding
@@ -387,13 +389,13 @@ export class Book {
     if (!this.isOpen) return;
     const t = this._turning;
     if (t) {
-      t.t = Math.min(1, t.t + dt / TURN);
+      t.t = this.reduceMotion ? 1 : Math.min(1, t.t + dt / TURN);
       const e = t.t * t.t * (3 - 2 * t.t);
       this._leafAt(t.side > 0 ? e : 1 - e);
       if (t.t >= 1) this._finishTurn();
     }
     if (this._slide !== this._slideTo) {
-      const step = (PAGE_W / SLIDE) * dt;
+      const step = this.reduceMotion ? Infinity : (PAGE_W / SLIDE) * dt;
       const d = this._slideTo - this._slide;
       this._slide = Math.abs(d) <= step ? this._slideTo : this._slide + Math.sign(d) * step;
       this.inner.position.x = this._slide;

@@ -95,6 +95,13 @@ export class Controls {
     this.auto = null; // a walk under way: { points: [[x, z], …], i, face: yaw|null, speed, turn, then }
     /** Sitting on the bench: { lift } (in VR, how far the rig is lowered to bring the head to a seated height), or null. */
     this.seated = null;
+    /** Less motion (common/access.js reduceMotion): a walk (to a spot, over the bridge, to the bench, into the door) jumps there. */
+    this.reduceMotion = false;
+    /** In VR, how far the rig stands above the ground: common/access.js eyeLift, for seated mode (setEyeLift). */
+    this.eyeLift = 0;
+    /** The sticks' smooth movement (m/s) and turning (rad/s) this frame in VR, for the vignette; 0 for snaps and teleports. */
+    this.moveSpeed = 0;
+    this.turnRate = 0;
     this._down = null;
     this._mouse = null;
     this._cursor = '';
@@ -134,6 +141,19 @@ export class Controls {
     for (const h of this.hands) h.aiming = false;
   }
 
+  /**
+   * Raises the rig this far above the ground in VR (common/access.js eyeLift: 0.45 m in seated
+   * mode, else 0), at once. On the bench the bench's own lift holds instead: it brings the head to
+   * a seated eye over the seat from wherever the headset is, so a visitor already sitting is not
+   * lowered further, and the lift comes back on getting up.
+   */
+  setEyeLift(lift) {
+    this.eyeLift = lift;
+    if (!this.renderer.xr.isPresenting || this.seated) return;
+    this.camera.getWorldPosition(this._head);
+    this.rig.position.y = groundAt(this.layout, this._head.x, this._head.z) + lift;
+  }
+
   /** Walks to a point on the ground (round the water, over the bridge), then maybe turns to `face` and calls `then`. */
   walkTo(x, z, { face = null, then = null } = {}) {
     this.stand();
@@ -155,6 +175,10 @@ export class Controls {
   }
 
   _startWalk(points, face, then) {
+    if (this.reduceMotion) {
+      this._jump(points[points.length - 1], face, then);
+      return;
+    }
     let length = 0, x = this.rig.position.x, z = this.rig.position.z;
     for (const [px, pz] of points) {
       length += Math.hypot(px - x, pz - z);
@@ -164,6 +188,19 @@ export class Controls {
     // Long walks go faster, so none takes much more than a second and a half (as in the hallway);
     // a walk that turns corners looks where it is going.
     this.auto = { points, i: 0, face, speed: clamp(length / 1.5, 2.2, 7), turn: points.length > 1, then };
+  }
+
+  /** Less motion: straight to the end of a walk (a point on its route, or through the doorway), facing `face` if given. */
+  _jump([x, z], face, then) {
+    this.auto = null;
+    const p = this.rig.position;
+    p.set(x, groundAt(this.layout, x, z), z);
+    if (face !== null) {
+      this.yaw = face;
+      this.pitch = 0;
+    }
+    this._apply();
+    then?.();
   }
 
   /**
@@ -224,11 +261,13 @@ export class Controls {
       this.rig.position.x = f.x;
       this.rig.position.z = f.z;
     }
-    this.rig.position.y = groundAt(this.layout, f.x, f.z);
+    this.rig.position.y = groundAt(this.layout, f.x, f.z) + (this.renderer.xr.isPresenting ? this.eyeLift : 0);
     this.onSeat(false);
   }
 
   update(dt) {
+    this.moveSpeed = 0;
+    this.turnRate = 0;
     if (this.renderer.xr.isPresenting) {
       this._updateXR(dt);
       return;
@@ -241,9 +280,9 @@ export class Controls {
     this._updateHover();
   }
 
-  /** Keeps the rig on the ground under (x, z) (where the head is), or at its seat. */
-  _standOnGround(dt, x, z, headAbove) {
-    const target = this.seated ? this.seated.lift : groundAt(this.layout, x, z) - headAbove;
+  /** Keeps the rig on the ground under (x, z) (where the head is), `lift` above it, or at its seat. */
+  _standOnGround(dt, x, z, lift) {
+    const target = this.seated ? this.seated.lift : groundAt(this.layout, x, z) + lift;
     const p = this.rig.position;
     const k = dt > 0 ? 1 - Math.exp(-dt * 18) : 1;
     p.y += (target - p.y) * k;
@@ -603,6 +642,7 @@ export class Controls {
       this.rig.updateMatrixWorld();
       this._moveHead(this._entry.x, this._entry.z);
       if (this._entry.seated) this._seat();
+      else this.setEyeLift(this.eyeLift); // up at once in seated mode, not rising into it
     }
     // The sticks: the right one turns (or, reading, turns pages), the left one walks or aims a teleport.
     for (const h of this.hands) {
@@ -621,9 +661,9 @@ export class Controls {
       this._closeHeld = !!close;
     }
     this.rig.updateMatrixWorld();
-    // Stand on the ground under the head (its height above the rig is the headset's own).
+    // Stand on the ground under the head (its height above the rig is the headset's own), raised in seated mode.
     this.camera.getWorldPosition(this._head);
-    this._standOnGround(dt, this._head.x, this._head.z, 0);
+    this._standOnGround(dt, this._head.x, this._head.z, this.eyeLift);
     this.rig.updateMatrixWorld();
     let usable = null, usableHit = null;
     for (const h of this.hands) {
@@ -673,7 +713,10 @@ export class Controls {
   /** Right stick: a 30 degree step each push (snap), or turning while held (smooth). */
   _turnStick(ax, dt) {
     if (this.turn === 'smooth') {
-      if (Math.abs(ax) > 0.15) this._turnAboutHead(-ax * SMOOTH_TURN * dt);
+      if (Math.abs(ax) > 0.15) {
+        this._turnAboutHead(-ax * SMOOTH_TURN * dt);
+        this.turnRate = Math.max(this.turnRate, Math.abs(ax) * SMOOTH_TURN);
+      }
       return;
     }
     if (this._snapArmed && Math.abs(ax) > 0.6) {
@@ -696,6 +739,7 @@ export class Controls {
     fz /= fl;
     // Right of forward (fx, fz) is (-fz, fx).
     const step = XR_WALK * dt;
+    this.moveSpeed = Math.max(this.moveSpeed, XR_WALK * Math.min(1, Math.hypot(ax, ay)));
     this.camera.getWorldPosition(this._head);
     this._moveHead(this._head.x + (-fz * ax - fx * ay) * step, this._head.z + (fx * ax - fz * ay) * step);
   }

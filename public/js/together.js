@@ -51,6 +51,8 @@ export class Together {
     this.onChange = () => {};
     this.onNotice = () => {};
     this.avatars = createAvatars({ parent: scene, ground: this.ground }); // its group: 'visitors'
+    /** Less motion (common/access.js): a wave is only its toast, without the avatar's bob. */
+    this.reduceMotion = false;
     this._pose = emptyPose();
     this._waves = new Map(); // peer id → when its last wave counted
     this._joining = 0; // which join is current: a slow import must not join a room left since
@@ -163,12 +165,12 @@ export class Together {
     this.avatars.clear();
   }
 
-  /** A wave from `peer`: a toast, and their avatar bobs when they're out here. At most once a second each. */
+  /** A wave from `peer`: a toast, and their avatar bobs when they're out here (not with less motion). At most once a second each. */
   _waved(peer) {
     const now = performance.now();
     if (now - (this._waves.get(peer.peerId) ?? -Infinity) < WAVE_AGAIN_MS) return;
     this._waves.set(peer.peerId, now);
-    this.avatars.wave(peer.peerId, now);
+    if (!this.reduceMotion) this.avatars.wave(peer.peerId, now);
     const name = peer.name || 'Someone';
     this.onNotice(!peer.page || peer.page === PAGE_ID ? `${name} waved` : `${name} waved, in ${peer.page}`);
   }

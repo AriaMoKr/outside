@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BENCH, BOOK, BRIDGE, BRIDGE_ENDS, GARDEN, HOUSE, PANEL, PLAQUE, TRAIL_LINE, TREES,
+  BENCH, BOOK, BRIDGE, BRIDGE_ENDS, GARDEN, HOUSE, PANEL, PANEL_BUTTONS, PANEL_PX, PLAQUE, TRAIL_LINE, TREES,
   castRay, clampWalk, clearPath, deckHeight, doorCrossed, doorSpawn, dry, groundAt, layoutGarden,
   onDeck, panelButtonAt, route, shoreAt, sideOf, standable, surfaceAt, terrain, trailDistance, waterAt, waterLevel,
 } from '../public/js/garden.js';
@@ -266,12 +266,28 @@ test('rays: the ground, the door, the panel, the bench, the book, the water, the
   assert.ok(hit.walkable);
 });
 
-test('the panel buttons, as the hallway has them', () => {
-  assert.equal(panelButtonAt(0.5, 1 - 100 / 512), 'vr');
-  assert.equal(panelButtonAt(0.45, 1 - 190 / 512), 'move:teleport');
-  assert.equal(panelButtonAt(0.8, 1 - 265 / 512), 'turn:smooth');
-  assert.equal(panelButtonAt(0.5, 1 - 430 / 512), 'session');
+test('the panel buttons: the hallway\'s, then the accessibility settings, then the session', () => {
+  const at = (x, y) => panelButtonAt(x / PANEL_PX.width, 1 - y / PANEL_PX.height);
+  assert.equal(at(256, 100), 'vr');
+  assert.equal(at(230, 190), 'move:teleport');
+  assert.equal(at(410, 265), 'turn:smooth');
+  assert.equal(at(210, 380), 'motion:system');
+  assert.equal(at(320, 380), 'motion:reduce');
+  assert.equal(at(430, 380), 'motion:full');
+  assert.equal(at(230, 457), 'vignette:on');
+  assert.equal(at(410, 533), 'seated:off');
+  assert.equal(at(256, 660), 'session');
   assert.equal(panelButtonAt(0.02, 0.02), null);
+  // Each inside the canvas, none overlapping another, and as tall and as wide as a finger needs.
+  for (const [id, x0, y0, x1, y1] of PANEL_BUTTONS) {
+    assert.ok(x0 >= 0 && y0 >= 0 && x1 <= PANEL_PX.width && y1 <= PANEL_PX.height, id);
+    assert.ok(x1 - x0 >= 100 && y1 - y0 >= 54, id);
+    for (const [other, a0, b0, a1, b1] of PANEL_BUTTONS) {
+      if (other !== id) assert.ok(x1 <= a0 || a1 <= x0 || y1 <= b0 || b1 <= y0, `${id} overlaps ${other}`);
+    }
+  }
+  // The canvas's pixels are square on the panel.
+  assert.ok(Math.abs(PANEL.width / PANEL.height - PANEL_PX.width / PANEL_PX.height) < 1e-9);
 });
 
 test('arriving: the doorway position within the jambs, the turn within ±90°, on dry ground', () => {

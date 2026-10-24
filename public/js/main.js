@@ -13,7 +13,8 @@ import { DEFAULT_GLOW, OUTSIDE_ID } from './way.js';
 import { setAnisotropy } from './textures.js';
 import { hallwayViews, keptWay, leaveUrl, readVisit, wayBack, withoutVisit } from 'common/door.js';
 import { Fade } from 'common/fade.js';
-import { loadNav, saveNav } from 'common/nav.js';
+import { NAV_KEY, loadNav, saveNav } from 'common/nav.js';
+import { ACCESS_KEY, Vignette, eyeLift, loadAccess, motionQuery, reduceMotion, saveAccess, watchMotion } from 'common/access.js';
 import { Together } from './together.js';
 import { Book } from './book.js';
 import { renderPreview, previewView } from './preview.js';
@@ -121,7 +122,16 @@ if (views) garden.house.loadView([views, { views: new URL('views/views.json', lo
 const controls = new Controls({ renderer, camera, rig, scene, dom: renderer.domElement, layout: L });
 const nav = loadNav();
 controls.setNav(nav);
+// The accessibility settings every site on the origin shares (common/access.js, hallway.access):
+// less motion (the system's, or the visitor's own), the comfort vignette, seated mode. Applied
+// below (applyAccess), once everything they touch is made.
+let access = loadAccess();
+const motion = motionQuery();
+let reduce = reduceMotion(access, motion);
+/** With less motion, a fade of a few tenths of a second is a blink. */
+const blink = (seconds) => (reduce ? 0.08 : seconds);
 const fade = new Fade(camera, 1);
+const vignette = new Vignette(camera, access.vignette);
 const book = new Book({ scene, place: L.book, anisotropy, light: garden.lightColor });
 
 // Out of the door: where the visitor went through, turned as they were (and looking as high).
@@ -145,7 +155,7 @@ function go() {
   // Leave the shared session now, so the others see the visitor go at once (the link carries its
   // room on); the fade gives the leaving message time to go out.
   together.pause();
-  fade.to(1, renderer.xr.isPresenting ? 0.3 : 0.4, () => location.assign(url));
+  fade.to(1, blink(renderer.xr.isPresenting ? 0.3 : 0.4), () => location.assign(url));
   // Still here a while later (the navigation was stopped or failed): come back out.
   clearTimeout(leaveTimer);
   leaveTimer = setTimeout(arrive, 12000);
@@ -158,17 +168,20 @@ function arrive() {
   const s = doorSpawn(L);
   controls.setPose(s.x, s.z, s.yaw);
   together.resume();
-  fade.to(0, 0.6);
+  fade.to(0, blink(0.6));
 }
 
 window.addEventListener('pageshow', (e) => {
-  if (e.persisted) arrive();
+  if (!e.persisted) return;
+  rereadSettings(); // changed elsewhere on the origin while this page was away
+  arrive();
 });
 // Leaving the page another way (a link, the address bar, closing it): leave the session too.
 window.addEventListener('pagehide', () => together.pause());
 
+// On a screen, choosing the door walks up to it and through; with less motion, straight through.
 controls.onDoor = (how) => {
-  if (how === 'xr') go();
+  if (how === 'xr' || reduce) go();
   else controls.walkInto();
 };
 
@@ -305,12 +318,15 @@ function showPanel() {
     vr: renderer.xr.isPresenting ? 'exit' : vrSupported ? 'enter' : 'none',
     move: nav.move,
     turn: nav.turn,
+    motion: access.motion,
+    vignette: access.vignette,
+    seated: access.seated,
     room: together?.room ?? null,
     link: together?.inviteLink.replace(/^https?:\/\//, '') ?? '',
     here: company.here,
     away: company.away,
   });
-  overlay.setNav(nav);
+  overlay.setChoices(nav, access);
   overlay.setSession(!!together?.room);
 }
 showPanel();
@@ -341,10 +357,13 @@ controls.onPanel = (id) => {
     return;
   }
   const [key, value] = id.split(':');
-  choose(key, value);
+  if (key === 'motion') setAccess({ motion: value });
+  else if (key === 'vignette' || key === 'seated') setAccess({ [key]: value === 'on' });
+  else choose(key, value);
 };
 overlay.onSession = toggleSession;
 overlay.onNav = choose;
+overlay.onAccess = (change) => setAccess(change);
 // A teleport in VR blinks: a moment of black hides the jump.
 controls.onTeleport = (move) => {
   if (leaving || !renderer.xr.isPresenting) {
@@ -353,7 +372,7 @@ controls.onTeleport = (move) => {
   }
   fade.to(1, 0.08, () => {
     move();
-    fade.to(0, 0.2);
+    fade.to(0, blink(0.2));
   });
 };
 
@@ -378,15 +397,51 @@ controls.onSqueeze = (hand) => {
 const invitedRoom = roomFromUrl(location.href);
 if (invitedRoom) together.start(invitedRoom);
 
+// ── Accessibility (common/access.js) ─────────────────────────────────────────
+
+/**
+ * The settings as they are now: with less motion the walks jump (controls), the fades blink
+ * (blink), the book's leaf and its slide on a narrow screen are cut, a wave doesn't bob, and the
+ * water, the grass and the doorway's veil hold still (the frame loop's time); the vignette as the
+ * visitor wants it; seated mode's lift in VR.
+ */
+function applyAccess() {
+  reduce = reduceMotion(access, motion);
+  controls.reduceMotion = book.reduceMotion = together.reduceMotion = reduce;
+  document.documentElement.classList.toggle('reduce-motion', reduce);
+  vignette.enabled = access.vignette;
+  controls.setEyeLift(eyeLift(access));
+  showPanel();
+}
+/** A setting changed, on the panel or in the overlay: applied, and kept for every site on the origin. */
+function setAccess(change) {
+  access = { ...access, ...change };
+  saveAccess(access); // false when storage is blocked: they then last this visit
+  applyAccess();
+}
+/** The settings and the movement choice again, as another page on the origin (the hallway) left them. */
+function rereadSettings() {
+  access = loadAccess();
+  Object.assign(nav, loadNav());
+  controls.setNav(nav);
+  applyAccess();
+}
+applyAccess();
+watchMotion(applyAccess, motion); // the system's setting, followed with motion 'system'
+addEventListener('storage', (e) => {
+  if (e.key === ACCESS_KEY || e.key === NAV_KEY || e.key === null) rereadSettings();
+});
+
 // ── The frame loop ───────────────────────────────────────────────────────────
 
 const head = new THREE.Vector3();
 let last = performance.now();
-let time = 0;
+let time = 0; // what moves on its own (the water, the grass, the doorway's veil) goes by this
 
 function step(dt) {
-  time += dt;
+  if (!reduce) time += dt;
   controls.update(dt);
+  vignette.update(dt, controls.moveSpeed, controls.turnRate, renderer.xr.isPresenting);
   camera.getWorldPosition(head);
   garden.update(time, dt, head, controls.hoverDoor);
   book.update(dt);
@@ -410,18 +465,22 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
-fade.to(0, 0.8);
+fade.to(0, blink(0.8));
 
 // For scripted testing. A hidden page gets no animation frames: drive it with tick().
 window.__outside = {
-  THREE, renderer, scene, camera, rig, garden, layout: L, controls, overlay, fade, xrDevice, go, enterVR, together, book, way, visit,
-  openBook, closeBook,
+  THREE, renderer, scene, camera, rig, garden, layout: L, controls, overlay, fade, vignette, xrDevice, go, enterVR, together, book, way, visit,
+  openBook, closeBook, setAccess,
+  /** The accessibility settings now, and whether motion is reduced. */
+  get access() {
+    return { ...access, reduce };
+  },
   /**
    * The picture the hallway's doorway to here shows (preview.js): the garden from the threshold,
    * as a data: URL, with how it is hung, for tools/preview.mjs.
    */
   preview(quality = 0.9) {
-    return { jpeg: renderPreview(renderer, scene, camera, { hide: [fade.mesh] }).toDataURL('image/jpeg', quality), params: previewView().params };
+    return { jpeg: renderPreview(renderer, scene, camera, { hide: [fade.mesh, vignette.mesh] }).toDataURL('image/jpeg', quality), params: previewView().params };
   },
   tick(dt = 1 / 60, n = 1) {
     for (let i = 0; i < n; i++) step(dt);

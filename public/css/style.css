@@ -42,8 +42,8 @@ a { color: var(--accent); }
 .tagline { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
 .card.alone { width: min(440px, calc(100vw - 24px)); }
 
-/* What the garden offers in 3D, as controls too: the bench, the book, the shared session, and how
-   to move and turn in VR. */
+/* What the garden offers in 3D, as controls too: the bench, the book, the shared session, and the
+   settings (motion, how to move and turn in VR, the vignette, seated). */
 .garden { margin-top: 10px; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
@@ -51,11 +51,12 @@ a { color: var(--accent); }
   color: var(--text); font-size: 13px;
 }
 .chip:hover, .chip[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
-.vr-settings { margin-top: 8px; display: grid; gap: 6px; }
-.vr-settings fieldset { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; padding: 0; border: 0; }
-.vr-settings legend { float: left; width: 6.5em; padding: 0; color: var(--muted); font-size: 13px; }
-.vr-settings label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
-.vr-settings input { margin: 0; accent-color: var(--accent); }
+.settings { margin-top: 8px; display: grid; gap: 6px; }
+.settings fieldset { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; padding: 0 0 0 6.5em; border: 0; }
+/* The legend in the fieldset's left margin, so options that wrap line up under the first. */
+.settings legend { float: left; width: 6.5em; margin-left: -6.5em; padding: 0; color: var(--muted); font-size: 13px; }
+.settings label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+.settings input { margin: 0; accent-color: var(--accent); }
 .no-webgl { margin: 10px 0 0; color: var(--muted); }
 
 /* How to move. */
@@ -95,6 +96,11 @@ a { color: var(--accent); }
 }
 .toast { padding: 8px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); animation: toast-in 0.25s ease; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } }
+
+/* Less motion (common/access.js, set on <html> by main.js): messages appear, and the hint and the
+   aiming dot change, without moving. */
+.reduce-motion .toast { animation: none; }
+.reduce-motion .hint, .reduce-motion .aim { transition: none; }
 
 /* Narrow screens: the card moves out of the toasts' way. */
 @media (max-width: 560px) {

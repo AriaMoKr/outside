@@ -1,20 +1,27 @@
 // The control panel on the house's wall beside the door (garden.js PANEL), as the hallway has it:
-// Enter / Exit VR, how to move and turn in VR, and the shared session (together.js): Start / Leave,
-// who else is in it, and its invite link to read out. Its canvas is redrawn only when what it
-// shows changes (a setting, a session, the button pointed at, someone coming or going), never per
-// frame.
+// Enter / Exit VR, how to move and turn in VR, the accessibility settings every site shares
+// (common/access.js: less motion, the comfort vignette, seated), and the shared session
+// (together.js): Start / Leave, who else is in it, and its invite link to read out. Its canvas is
+// redrawn only when what it shows changes (a setting, a session, the button pointed at, someone
+// coming or going), never per frame.
 import * as THREE from 'three';
 import { PANEL, PANEL_PX, PANEL_BUTTONS } from './garden.js';
 import { GOLD, SANS, SERIF, enamel } from './textures.js';
 
-const LABELS = { 'move:teleport': 'Teleport', 'move:smooth': 'Smooth', 'turn:snap': 'Snap', 'turn:smooth': 'Smooth' };
+const LABELS = {
+  'move:teleport': 'Teleport', 'move:smooth': 'Smooth', 'turn:snap': 'Snap', 'turn:smooth': 'Smooth',
+  'motion:system': 'System', 'motion:reduce': 'Less', 'motion:full': 'Full',
+  'vignette:on': 'On', 'vignette:off': 'Off', 'seated:on': 'On', 'seated:off': 'Off',
+};
 const VR_LABELS = { exit: 'Exit VR', enter: 'Enter VR', none: 'No VR in this browser' };
 const HINTS = {
   teleport: 'Left stick forward, aim, let go: teleport',
   smooth: 'Left stick: walk · trigger at the floor: teleport',
 };
 const SESSION_LABELS = { on: 'Leave shared session', off: 'Start shared session' };
-const KEYS = ['vr', 'move', 'turn', 'room', 'link', 'here', 'away'];
+const KEYS = ['vr', 'move', 'turn', 'motion', 'vignette', 'seated', 'room', 'link', 'here', 'away'];
+/** A button's value in the state: the vignette and seated are on or off. */
+const value = (state, group) => (typeof state[group] === 'boolean' ? (state[group] ? 'on' : 'off') : state[group]);
 
 /** Who else is in the session, in a few words. */
 export function companyText(here, away) {
@@ -40,15 +47,16 @@ export class ControlPanel {
     // On the wall (z = 0), facing the garden (-z).
     this.mesh.position.set(PANEL.x, PANEL.y, -PANEL.depth);
     this.mesh.rotation.y = Math.PI;
-    this.state = { vr: 'none', move: 'smooth', turn: 'snap', room: null, link: '', here: 0, away: 0 };
+    this.state = { vr: 'none', move: 'smooth', turn: 'snap', motion: 'system', vignette: true, seated: false, room: null, link: '', here: 0, away: 0 };
     this.hover = null;
     this._draw();
   }
 
   /**
    * What it shows, all or part of it: vr is 'exit' (in VR), 'enter' (VR available) or 'none'; move
-   * and turn as in common/nav.js; room is the shared session's (null when not in one), link its
-   * invite link, here and away how many others are in the hallway and elsewhere in it.
+   * and turn as in common/nav.js; motion, vignette and seated as in common/access.js; room is the
+   * shared session's (null when not in one), link its invite link, here and away how many others
+   * are in the hallway and elsewhere in it.
    */
   set(state) {
     const next = { ...this.state, ...state };
@@ -77,6 +85,9 @@ export class ControlPanel {
     g.textBaseline = 'middle';
     g.fillText('Move', 34, 189);
     g.fillText('Turn', 34, 265);
+    g.fillText('Motion', 34, 381);
+    g.fillText('Vignette', 34, 457);
+    g.fillText('Seated', 34, 533);
     for (const [id, x0, y0, x1, y1] of PANEL_BUTTONS) {
       let label, selected = false, disabled = false;
       if (id === 'vr') {
@@ -85,9 +96,9 @@ export class ControlPanel {
       } else if (id === 'session') {
         label = SESSION_LABELS[this.state.room ? 'on' : 'off'];
       } else {
-        const [group, value] = id.split(':');
+        const [group, choice] = id.split(':');
         label = LABELS[id];
-        selected = this.state[group] === value;
+        selected = value(this.state, group) === choice;
       }
       const hover = this.hover === id && !disabled;
       g.beginPath();
@@ -105,26 +116,29 @@ export class ControlPanel {
     g.fillStyle = '#b9a98d';
     g.font = `18px ${SANS}`;
     g.textAlign = 'center';
-    g.fillText(HINTS[this.state.move], W / 2, 330);
+    g.fillText(HINTS[this.state.move], W / 2, 326);
+    const about = 'Less motion stills the garden · seated raises your view';
+    fitText(g, about, W - 64, 18);
+    g.fillText(about, W / 2, 586);
 
     // The shared session.
     g.fillStyle = 'rgba(224,187,114,0.35)';
-    g.fillRect(32, 354, W - 64, 2);
+    g.fillRect(32, 602, W - 64, 2);
     g.textAlign = 'left';
     g.fillStyle = GOLD;
     g.font = `600 26px ${SERIF}`;
-    g.fillText('Together', 32, 384);
+    g.fillText('Together', 32, 632);
     if (this.state.room) {
       g.textAlign = 'right';
       g.fillStyle = '#efe5cf';
       g.font = `20px ${SANS}`;
-      g.fillText(companyText(this.state.here, this.state.away), W - 32, 385);
+      g.fillText(companyText(this.state.here, this.state.away), W - 32, 633);
     }
     g.textAlign = 'center';
     g.fillStyle = '#b9a98d';
     const note = this.state.room ? this.state.link : 'Start one, share its link, and see each other here';
     fitText(g, note, W - 64, 18);
-    g.fillText(note, W / 2, 486);
+    g.fillText(note, W / 2, 734);
     this.texture.needsUpdate = true;
   }
 }

@@ -30,11 +30,23 @@ A walk to somewhere across the water goes over the bridge, and round the pond. Y
 into the water, or through the hedges, the trees or the bench. The ground rises and falls a
 little, and the bridge arches: you go up and down with it.
 
-**Fullscreen**, the **control panel** on the wall beside the door (Enter or exit VR, and how to
-move and turn in VR: Smooth or Teleport, Snap or Smooth), and **Together** work as they do in the
-hallway. The VR choices are the hallway's own: both read and keep them in `localStorage` under
-`hallway.nav` ([AriaMoKr/common](https://github.com/AriaMoKr/common)'s `nav.js`), so a choice made
-on either side of the door holds on the other.
+**Fullscreen**, the **control panel** on the wall beside the door (Enter or exit VR, how to move
+and turn in VR: Smooth or Teleport, Snap or Smooth, and the settings below), and **Together** work
+as they do in the hallway. The VR choices are the hallway's own: both read and keep them in
+`localStorage` under `hallway.nav` ([AriaMoKr/common](https://github.com/AriaMoKr/common)'s
+`nav.js`), so a choice made on either side of the door holds on the other.
+
+### Settings for comfort
+
+Three more settings, on the panel and in the card's **Settings**, are shared the same way, under
+`hallway.access` (common's `access.js`): set them anywhere on the site and they hold behind every
+door, and a page still open elsewhere takes the change at once.
+
+| Setting | What it does here |
+|---|---|
+| **Motion**: System, Less or Full | With less motion (System follows the device's own setting) nothing glides: a click on the ground, the way over the bridge, the bench and the door are a jump, not a walk; the fades are blinks; a page of the book turns at once; and the garden holds still: the water, the grass and the willow, the doorway's veil, and a waving visitor's bob. |
+| **Vignette**: On or Off | In VR, while you glide or turn smoothly with the sticks, the edge of the view darkens and closes in, and opens when you stop. It is on unless you turn it off. Snap turns and teleports blink instead. |
+| **Seated**: On or Off | In VR, your view is raised 0.45 m, so sitting down you see the garden from about standing height. Sitting on the bench brings your eyes to a seated height on it, from wherever your headset is, so a visitor already sitting stays put, and getting up raises you again. |
 
 ## The bench, and the book
 
@@ -45,8 +57,9 @@ a book. Choose it, or **Read the book**, and it opens in front of you.
 On a screen, the card at the top left has the garden's 3D choices as buttons too, for a keyboard
 or a screen reader: **Sit on the bench** (or **Get up**), **Read the book** (from anywhere: you
 walk to the bench first, as when you choose the book in 3D), **Start shared session** (or
-**Leave shared session**), and **VR settings**, how to move and turn in VR, as on the panel by
-the door. The view itself is a picture to a screen reader, named for what is in it.
+**Leave shared session**), and **Settings**: motion, how to move and turn in VR, the vignette and
+seated, as on the panel by the door. The view itself is a picture to a screen reader, named for
+what is in it.
 
 | | Turn a page | Put the book down | Get up |
 |---|---|---|---|
