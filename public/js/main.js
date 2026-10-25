@@ -17,12 +17,12 @@ import { hallwayViews, keptWay, leaveUrl, readVisit, wayBack, withoutVisit } fro
 import { Fade } from 'common/fade.js';
 import { NAV_KEY, loadNav, saveNav } from 'common/nav.js';
 import { ACCESS_KEY, Vignette, eyeLift, loadAccess, motionQuery, reduceMotion, saveAccess, watchMotion } from 'common/access.js';
-import { Together } from './together.js';
+import { gardenTogether, noticeText } from './together.js';
 import { Book } from './book.js';
 import { readingText } from './pages.js';
 import { readerSettings } from './reader.js';
 import { TextView } from './text-view.js';
-import { BackHistory } from './back-history.js';
+import { BackHistory } from 'common/back-history.js';
 import { BOOK_SUBTITLE, BOOK_TITLE, COLOPHON, PIECES } from './reading.js';
 import { renderPreview, previewView } from './preview.js';
 import { roomFromUrl } from 'layersharedsession/room.js';
@@ -177,9 +177,10 @@ function go() {
   closeBook();
   const url = leaveUrl(way, together.room);
   // Leave the shared session now, so the others see the visitor go at once (the link carries its
-  // room on); the fade gives the leaving message time to go out.
-  together.pause();
-  fade.to(1, blink(renderer.xr.isPresenting ? 0.3 : 0.4), () => location.assign(url));
+  // room on): the fade, and then until it is left (half a second at most), give the leaving message
+  // time to go out.
+  const left = Promise.race([together.pause(), new Promise((r) => setTimeout(r, 500))]);
+  fade.to(1, blink(renderer.xr.isPresenting ? 0.3 : 0.4), () => left.then(() => location.assign(url)));
   // Still here a while later (the navigation was stopped or failed): come back out.
   clearTimeout(leaveTimer);
   leaveTimer = setTimeout(arrive, 12000);
@@ -232,9 +233,12 @@ controls.onSeat = (seated) => {
 // The overlay's buttons do as the bench and the book do in 3D: on a screen, one walks there first.
 overlay.onBench = (sit) => (sit ? controls.onBench() : controls.stand());
 overlay.onRead = () => (book.isOpen ? closeBook() : controls.sit(() => openBook()));
-// The browser's Back, with the book open, goes back along the contents' links, then puts it down.
+// The browser's Back, with the book open, goes back along the contents' links, then puts it down
+// (common's back-history.js). The prefix keeps the names this site's own copy gave its fields in an
+// entry's state (outsideBook…), so entries already in a visitor's tab are still the book's.
 const backHistory = new BackHistory({
   history,
+  prefix: 'outside',
   load: performance.timeOrigin,
   onBack: (depth) => book.backTo(depth),
   onAway: () => closeBook({ away: true }),
@@ -484,14 +488,18 @@ controls.onTeleport = (move) => {
 
 // ── The shared session ───────────────────────────────────────────────────────
 
-together = new Together({ scene, camera, renderer, hands: () => controls.hands, ground: (x, z) => surfaceAt(L, x, z) });
-together.onChange = () => {
+together = gardenTogether({ scene, camera, renderer, hands: () => controls.hands, ground: (x, z) => surfaceAt(L, x, z) });
+together.on('change', () => {
   showPanel();
   overlay.setInvite(together.active ? together.inviteLink : '');
   overlay.setTogether(together.active);
   overlay.refreshLinks();
-};
-together.onNotice = (text) => overlay.toast(text, 4);
+});
+// The session's notices (someone joined, came out here, left, waved), in the garden's words.
+together.on('notice', (notice) => {
+  const text = noticeText(notice);
+  if (text) overlay.toast(text, 4);
+});
 // A wave: the Wave button, or a controller's grip in VR (which pulses, so the waver feels it go).
 overlay.onWave = () => {
   if (together.wave()) overlay.toast('You waved', 2);

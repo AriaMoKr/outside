@@ -41,7 +41,7 @@ test('every client module parses', () => {
 });
 
 test('client modules import only three, the shared packages and each other', () => {
-  const shared = /^(common|layersharedsession)\/[a-z]+\.js$/;
+  const shared = /^(common|layersharedsession)\/[a-z-]+\.js$/; // not common/tools/…: those are Node's
   const { imports } = JSON.parse(html.match(/<script type="importmap">(.*?)<\/script>/s)[1]);
   const installed = existsSync(join(root, 'vendor'));
   for (const f of readdirSync(join(root, 'js'))) {

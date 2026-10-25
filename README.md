@@ -178,7 +178,7 @@ carries the room into the hallway. In the hallway, those out here count as elsew
 You need Node.js 22 or newer.
 
 ```bash
-npm install     # three.js, common (the door contract, the sky, the comfort settings, and the doorway, fade and gamepad code the hallway shares), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/
+npm install     # three.js, common (the door contract, the sky, the comfort settings, the book's Back, and the doorway, fade and gamepad code the hallway shares), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/ by common's tools/vendor.mjs from vendor.json
 npm start       # http://localhost:8090/
 npm test
 ```
@@ -209,12 +209,13 @@ node tools/hallway-view.mjs   # public/views/: the hall, for the doorway back (n
 
 Render the first again after changing the garden, and the second after the hallway changes. The
 hallway checkout is copied, never changed. Each run starts Chrome on a new profile that is first
-told the Windows password is not blank (as Breadboard's tools do), so Chrome never tries a logon
-to find out.
+told the Windows password is not blank (common's `tools/chrome.mjs` does this for every site), so
+Chrome never tries a logon to find out.
 
 ## Publishing
 
 `.github/workflows/pages.yml` publishes `public/` to GitHub Pages
 (https://ariamokr.github.io/outside/, from AriaMoKr/outside) on every push to `main`, after the
-tests. In the repository's Settings → Pages, the source must be "GitHub Actions". Every URL in the
+tests, through the sites' workflow in [AriaMoKr/common](https://github.com/AriaMoKr/common) (on
+Node 24). In the repository's Settings → Pages, the source must be "GitHub Actions". Every URL in the
 page is relative.

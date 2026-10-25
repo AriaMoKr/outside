@@ -1,5 +1,7 @@
-# Publishes the garden to GitHub Pages on every push to main, or by hand: public/ as it is, with
-# the three.js (and IWER, for ?xr=emulate) modules npm ci copies into public/vendor/.
+# Publishes the garden to GitHub Pages on every push to main, or by hand, through the sites'
+# workflow (AriaMoKr/common's .github/workflows/pages.yml): npm ci (which copies three.js, common,
+# the shared session and IWER into public/vendor/), npm test, then public/ as it is, deployed. On
+# the current Node LTS (24).
 #
 # One-time setup: the repository's Settings → Pages → Build and deployment → Source: GitHub Actions.
 name: Pages
@@ -20,26 +22,5 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: public
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v5
+  pages:
+    uses: AriaMoKr/common/.github/workflows/pages.yml@v0.5.0

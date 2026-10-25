@@ -7,7 +7,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PUBLIC, serve } from './serve.mjs';
-import { launchChrome, sleep } from './lib/chrome.mjs';
+import { launchChrome, sleep } from 'common/tools/chrome.mjs';
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(name);

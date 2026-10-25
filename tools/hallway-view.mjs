@@ -11,7 +11,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PUBLIC, serve } from './serve.mjs';
-import { launchChrome, sleep } from './lib/chrome.mjs';
+import { launchChrome, sleep } from 'common/tools/chrome.mjs';
 import { HALLWAY_DOOR } from '../public/js/way.js';
 
 const arg = (name, fallback) => {
