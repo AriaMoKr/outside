@@ -73,8 +73,9 @@ void main() {
  * @param {object} o
  * @param {{ title: string, subtitle: string, sign: string }} o.names what the door back's plaque and sign say
  * @param {string} o.glow its colour
+ * @param {boolean} [o.tv] a TV's (main.js): the water's ripples from a picture (water.js)
  */
-export function buildGarden(L, { names, glow, anisotropy = 1 }) {
+export function buildGarden(L, { names, glow, anisotropy = 1, tv = false }) {
   const started = performance.now();
   const group = new THREE.Group();
   group.name = 'garden';
@@ -235,7 +236,7 @@ export function buildGarden(L, { names, glow, anisotropy = 1 }) {
 
   // The water, and the sky over it all.
   const sky = skyTexture();
-  const water = buildWater(env, sky);
+  const water = buildWater(env, sky, { tv });
   group.add(water.mesh);
   const dome = skyDome(sky);
   group.add(dome);

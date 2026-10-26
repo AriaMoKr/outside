@@ -2,12 +2,20 @@
 // left, lying at the water's level and reaching a little under the banks (the ground hides its
 // edges). Its shader ripples it, flowing downstream in the stream and stirred by the wind on the
 // pond, reflects the sky (the same picture as the dome, common's sky.js), catches the sun where
-// the baked shadows let it, and is brown over the shallows and dark green-blue over the deep.
+// the baked shadows let it, and is brown over the shallows and dark green-blue over the deep. On a
+// TV its ripples come from a picture of the same noise (rippleTexture), the slope in it too: worked
+// out at every pixel, they cost a TV's GPU most of a frame.
 import * as THREE from 'three';
 import { STREAM_X, WATER_UNDER, farWidth, nearWidth, streamAt, waterDepth, waterLevel } from './garden.js';
 import { sunlit } from './bake.js';
 import { Builder } from './builder.js';
 import { SKY_UV, SUN_DIR } from 'common/sky.js';
+
+/**
+ * The ripple picture (a TV's water): its size in noise cells, and pixels to a cell; and the
+ * steepest its slope gets per cell, either way (a smooth step between 0 and 1 is 1.5 at its middle).
+ */
+export const RIPPLE = { cells: 32, perCell: 8, slope: 1.5 };
 
 const vertexShader = /* glsl */ `
 attribute vec3 flow;   // travel (s, from where it comes in), across (m, + toward the house), calm (1 on the pond)
@@ -43,6 +51,22 @@ varying vec2 vWater;
 #include <fog_pars_fragment>
 ${SKY_UV}
 
+#ifdef RIPPLE_MAP
+// A TV's: the noise read from rippleTexture, RIPPLE.cells across and repeating: its value, and its slope
+// per cell. Each pattern is its three octaves' sum, as below, and its slope theirs.
+uniform sampler2D uRipples;
+vec3 ripple(vec2 p) {
+  vec3 t = texture2D(uRipples, p * (1.0 / ${RIPPLE.cells.toFixed(1)})).rgb;
+  return vec3(t.r, (t.gb - 0.5) * ${(2 * RIPPLE.slope).toFixed(1)});
+}
+vec3 streamRipples(vec2 p) {
+  vec3 a = ripple(p * vec2(2.2, 4.0)), b = ripple(p * vec2(5.1, 7.3) + 3.1), c = ripple(p * 11.0 + 7.7);
+  return vec3(a.x * 0.6 + b.x * 0.3 + c.x * 0.1, a.yz * vec2(2.2, 4.0) * 0.6 + b.yz * vec2(5.1, 7.3) * 0.3 + c.yz * 11.0 * 0.1);
+}
+vec2 pondSlope(vec2 p, float t) {
+  return ripple(p * 3.1 + vec2(t * 0.35, t * 0.12)).yz * (3.1 * 0.55) + ripple(p * 6.7 - vec2(t * 0.2, -t * 0.31)).yz * (6.7 * 0.3) + ripple(p * 14.0 + vec2(t * 0.5, 0.0)).yz * (14.0 * 0.15);
+}
+#else
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
   vec2 i = floor(p), f = fract(p);
@@ -57,18 +81,26 @@ float stream(vec2 p) {
 float pond(vec2 p, float t) {
   return noise(p * 3.1 + vec2(t * 0.35, t * 0.12)) * 0.55 + noise(p * 6.7 - vec2(t * 0.2, -t * 0.31)) * 0.3 + noise(p * 14.0 + vec2(t * 0.5, 0.0)) * 0.15;
 }
+#endif
 
 void main() {
   float calm = vFlow.z;
   // The surface's slope, from either pattern, blended between stream and pond.
   vec2 along = vec2((vFlow.x - uTime) * 0.4, vFlow.y);
+#ifdef RIPPLE_MAP
+  vec3 st = streamRipples(along);
+  float hs = st.x;
+  vec2 gs = st.yz;
+  vec2 gp = pondSlope(vWorld.xz, uTime);
+#else
   float e = 0.04;
   float hs = stream(along);
   vec2 gs = vec2(stream(along + vec2(e, 0.0)) - hs, stream(along + vec2(0.0, e)) - hs) / e;
-  vec2 across = vec2(vTangent.y, -vTangent.x);
-  vec2 slopeStream = (gs.x * vTangent + gs.y * across) * 0.035;
   float hp = pond(vWorld.xz, uTime);
   vec2 gp = vec2(pond(vWorld.xz + vec2(e, 0.0), uTime) - hp, pond(vWorld.xz + vec2(0.0, e), uTime) - hp) / e;
+#endif
+  vec2 across = vec2(vTangent.y, -vTangent.x);
+  vec2 slopeStream = (gs.x * vTangent + gs.y * across) * 0.035;
   vec2 slope = mix(slopeStream, gp * 0.012, calm);
   vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
 
@@ -101,10 +133,11 @@ void main() {
 `;
 
 /**
- * The water's mesh and material. `env` is the baked lighting's (for its shadows on the water).
+ * The water's mesh and material. `env` is the baked lighting's (for its shadows on the water);
+ * `tv`, a TV's ripples (rippleTexture).
  * @returns {{ mesh: THREE.Mesh, update(time: number): void }}
  */
-export function buildWater(env, skyMap) {
+export function buildWater(env, skyMap, { tv = false } = {}) {
   const b = new Builder();
   const STEP = 0.2, ACROSS = 22, UNDER = WATER_UNDER; // under the banks
   const xs = [];
@@ -168,6 +201,10 @@ export function buildWater(env, skyMap) {
     fog: true,
   });
   material.uniforms.uSky.value = skyMap;
+  if (tv) {
+    material.defines = { RIPPLE_MAP: '' };
+    material.uniforms.uRipples = { value: rippleTexture() };
+  }
   const mesh = new THREE.Mesh(g, material);
   mesh.name = 'water';
   return {
@@ -176,6 +213,57 @@ export function buildWater(env, skyMap) {
       material.uniforms.uTime.value = time;
     },
   };
+}
+
+/**
+ * The ripples' noise as a picture, for a TV's water: value noise on a lattice of RIPPLE.cells
+ * cells that repeats, as the shader's own noise is shaped (a smooth step between random corners),
+ * RIPPLE.perCell pixels to a cell. Red is its value, green and blue its slope across x and y per
+ * cell, from -RIPPLE.slope to RIPPLE.slope kept as 0 to 1.
+ * @returns {Uint8Array} RGBA, row by row (y), RIPPLE.cells * RIPPLE.perCell pixels square
+ */
+export function rippleData(seed = 1979) {
+  const { cells: C, perCell: P, slope: S } = RIPPLE;
+  const N = C * P;
+  // The corners: a small linear congruential generator, so the picture is the same every time.
+  const corners = new Float32Array(C * C);
+  let x = seed >>> 0;
+  for (let i = 0; i < corners.length; i++) {
+    x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
+    corners[i] = x / 4294967296;
+  }
+  const at = (i, j) => corners[((j + C) % C) * C + ((i + C) % C)];
+  const out = new Uint8Array(N * N * 4);
+  const byte = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
+  for (let py = 0; py < N; py++) {
+    for (let px = 0; px < N; px++) {
+      const cx = (px + 0.5) / P, cy = (py + 0.5) / P;
+      const i = Math.floor(cx), j = Math.floor(cy), fx = cx - i, fy = cy - j;
+      const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+      const dux = 6 * fx * (1 - fx), duy = 6 * fy * (1 - fy);
+      const a = at(i, j), b = at(i + 1, j), c = at(i, j + 1), d = at(i + 1, j + 1);
+      const k = a - b - c + d;
+      const v = a + (b - a) * ux + (c - a) * uy + k * ux * uy;
+      const o = (py * N + px) * 4;
+      out[o] = byte(v);
+      out[o + 1] = byte(0.5 + (dux * (b - a + k * uy)) / (2 * S));
+      out[o + 2] = byte(0.5 + (duy * (c - a + k * ux)) / (2 * S));
+      out[o + 3] = 255;
+    }
+  }
+  return out;
+}
+
+/** rippleData as a repeating texture, mipmapped so the far water's ripples settle rather than shimmer. */
+export function rippleTexture() {
+  const n = RIPPLE.cells * RIPPLE.perCell;
+  const t = new THREE.DataTexture(rippleData(), n, n, THREE.RGBAFormat);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.magFilter = THREE.LinearFilter;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.needsUpdate = true;
+  return t;
 }
 
 /** The first column at or under x on the 0.2 m grid. */

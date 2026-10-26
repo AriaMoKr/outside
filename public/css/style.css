@@ -159,6 +159,53 @@ a { color: var(--accent); }
   .tv-where { flex-basis: 60px; }
 }
 
+/* The text view covers the view and what is over it: those aren't shown (or reached) meanwhile. Its
+   messages and its hint stay in front of it. */
+body:has(.tv:not([hidden])) #overlay, #view-overlay:has(> .tv:not([hidden])) > .buttons { visibility: hidden; }
+.toasts, .hint { z-index: 4; }
+
+/* While the book is open, what its keys do, in the card. */
+.book-tools { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.chip[aria-pressed="true"] { border-color: var(--accent); background: rgba(224, 187, 114, 0.18); color: var(--accent); }
+/* On a TV: the invite link, to open on another device. */
+.invite-text { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+.invite-link { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+
+/* The 10-foot view: the Android TV app's page (common's tv.js), 960 × 540 and seen from across a
+   room, as the hallway's. Larger text, focus rings that show from the sofa on any background, the
+   TV's safe margins (48 px at the sides, 27 at the top and bottom), and no blur behind the card (a
+   TV's GPU has none to spare: README). */
+html.tv, html.tv body { font-size: 18px; }
+html.tv :focus-visible { outline: 4px solid #ffd98a; outline-offset: 3px; box-shadow: 0 0 0 9px rgba(0, 0, 0, 0.65); }
+html.tv .settings label:has(input:focus-visible) { outline: 4px solid #ffd98a; outline-offset: 4px; border-radius: 4px; }
+html.tv .settings label input:focus-visible { outline-width: 2px; outline-offset: 1px; box-shadow: none; }
+html.tv .card {
+  top: 27px; left: 48px; width: min(440px, 46vw); max-height: calc(100vh - 54px); overflow-y: auto; padding: 14px 18px 16px;
+  backdrop-filter: none; background: rgba(20, 28, 25, 0.95);
+}
+html.tv .brand { font-size: 26px; }
+html.tv .way-back { padding: 4px 14px; font-size: 16px; }
+html.tv .tagline, html.tv .invite-text { font-size: 16px; }
+html.tv .actions { gap: 10px; }
+html.tv .chip { padding: 7px 16px; font-size: 17px; }
+html.tv .settings { gap: 10px; font-size: 16px; }
+html.tv .settings fieldset { gap: 8px 18px; padding-left: 7em; }
+html.tv .settings legend { width: 7em; margin-left: -7em; font-size: 16px; }
+html.tv .settings label { gap: 8px; font-size: 16px; }
+html.tv .settings input { width: 20px; height: 20px; }
+html.tv .hint { bottom: 27px; max-width: calc(100vw - 96px); padding: 10px 18px; border-radius: 18px; background: rgba(0, 0, 0, 0.78); font-size: 17px; white-space: pre-line; }
+html.tv .buttons { left: 48px; right: 48px; bottom: 27px; }
+html.tv .pill, html.tv .toast { font-size: 17px; }
+html.tv .toasts { top: 27px; max-width: calc(100vw - 96px); }
+html.tv .aim { width: 26px; height: 26px; margin: -13px 0 0 -13px; border-width: 3px; }
+/* The text view, from across the room: its toolbar inside the safe margins, its words larger. */
+html.tv .tv-bar { gap: 8px 10px; padding: 27px 48px 10px; font-size: 18px; }
+html.tv .tv-bar button, html.tv .tv-parts button, html.tv .tv-bar select { min-height: 44px; padding: 6px 14px; }
+html.tv .tv-toc { font-size: 19px; }
+html.tv .tv-col { max-width: 62ch; padding: 20px 48px 64px; font-size: calc(1.3rem * var(--tv-scale)); }
+html.tv .tv-partno, html.tv .tv-parts { font-size: 17px; }
+html.tv .tv :focus-visible { outline: 4px solid #ffd98a; outline-offset: 3px; box-shadow: 0 0 0 9px rgba(0, 0, 0, 0.65); }
+
 /* Less motion (common/access.js, set on <html> by main.js): messages appear, and the hint and the
    aiming dot change, without moving. */
 .reduce-motion .toast { animation: none; }

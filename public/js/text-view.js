@@ -134,7 +134,7 @@ const STATIC = `
     <button type="button" class="tv-close" aria-label="Close text view" title="Back to the book in 3D (T or Esc)">Close<span class="tv-wide"> text view</span></button>
     <button type="button" class="tv-toc-btn" aria-expanded="false" aria-controls="tv-toc">Contents</button>
     <span class="tv-size" role="group" aria-label="Text size">
-      <button type="button" class="tv-smaller" aria-label="Smaller text">A−</button><button type="button" class="tv-bigger" aria-label="Larger text">A+</button>
+      <button type="button" class="tv-smaller"><span aria-hidden="true">A−</span><span class="sr-only">Smaller text</span></button><button type="button" class="tv-bigger"><span aria-hidden="true">A+</span><span class="sr-only">Larger text</span></button>
     </span>
     <label class="tv-theme"><span class="tv-wide">Theme</span> <select class="tv-theme-sel" aria-label="Theme"><option value="paper">Paper</option><option value="sepia">Sepia</option><option value="night">Night</option></select></label>
     <span class="tv-where"><span class="tv-label tv-wide" aria-hidden="true"></span><input class="tv-slider" type="range" min="0" max="1000" step="1" aria-label="Where in the book"></span>
@@ -201,6 +201,13 @@ export class TextView {
 
   get isOpen() { return this._open; }
 
+  /** Whether its contents is open (Back closes it first: main.js). */
+  get contentsOpen() { return this._open && !this.$('.tv-toc').hidden; }
+
+  closeContents() {
+    this._toggleToc(false);
+  }
+
   _wire() {
     const B = this.book;
     const q = (sel, fn) => this.el.querySelectorAll(sel).forEach((b) => b.addEventListener('click', fn));
@@ -239,10 +246,25 @@ export class TextView {
         this.close();
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault();
-        this._sync();
-        B.turn(e.key === 'ArrowRight' ? 1 : -1);
+        this.turn(e.key === 'ArrowRight' ? 1 : -1);
       }
     });
+  }
+
+  /** ← →: the 3D book a page on or back from the reader's place, the view following it. */
+  turn(side) {
+    this._sync();
+    this.book.turn(side);
+  }
+
+  /**
+   * Reads on (dir 1) or back (-1) by most of what shows below the toolbar, a few lines staying in
+   * sight: a TV's ↑ ↓ (main.js), its remote leaving the focus on the 3D view.
+   */
+  scrollStep(dir) {
+    if (!this._open) return;
+    const bar = this.$('.tv-bar').offsetHeight;
+    this.el.scrollBy({ top: dir * Math.max(40, (this.el.clientHeight - bar) * 0.75), behavior: this.book.reduceMotion ? 'auto' : 'smooth' });
   }
 
   /** The text size, one step, the view staying at its place. */

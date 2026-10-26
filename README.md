@@ -6,7 +6,8 @@ A small garden outside one of the [Hallway](https://ariamokr.github.io/hallway/)
 afternoon: a lawn closed in by hedges and a dry-stone wall, a stream that runs under a little
 wooden foot bridge into a pond with lily pads and a willow over it, a foot trail from the door
 over the bridge to a bench by the pond, and on the bench a book to read. Walk it in VR on a Meta
-Quest, on a desktop or on a phone, as you walk the hallway. There is nothing to install.
+Quest, on a desktop or on a phone, as you walk the hallway, or on an Android TV with its remote, in
+[the hallway's TV app](#the-tv-app). There is nothing to install.
 
 ![The garden as one comes out of the door](public/hallway-preview.jpg)
 
@@ -25,6 +26,7 @@ As in the hallway:
 | Phone | drag | tap the ground | tap the door | the **Wave** button |
 | Headset | your head | left stick walks (or aims a teleport), right stick turns, trigger at the ground teleports | trigger (or pinch) at the door, or step through it | squeeze a grip (with the book open, a grip moves it instead) |
 | Gamepad | right stick | left stick (click it in to hurry) | aim the dot at the door and press A, or walk into it | the **Wave** button |
+| TV remote | ← and → turn | ↑ and ↓ | aim the dot at the door and press OK, or walk into it | the **Wave** button, from the card (Menu) |
 
 A walk to somewhere across the water goes over the bridge, and round the pond. You can't walk
 into the water, or through the hedges, the trees or the bench. The ground rises and falls a
@@ -77,7 +79,7 @@ left it.
 | Book distance / size | the mouse wheel | pinch | right stick up/down · left stick up/down · grip to move it | the triggers |
 | Back (along the links, then put down) | Backspace, ↩ Back, or the browser's Back | ↩ Back, or the back gesture | B or Y | B |
 | Put the book down | Esc, ✕, or click off the book | ✕, or tap off the book | ✕, or B or Y | ✕, or B |
-| Book out of sight | F, or **Bring the book in front of me** (in Settings) | drag back to it, or tap off it and read it again | press a thumbstick | press the right stick |
+| Book out of sight | F, or **In front of me** in the card | drag back to it, or tap off it and read it again | press a thumbstick | press the right stick |
 | Back to the start | Home, or **Reset view** (in Settings) | **Reset view** (in Settings) | | |
 | Get up | WASD | tap the ground | left stick, once the book is down | left stick |
 
@@ -93,9 +95,8 @@ On a screen, the card at the top left has the garden's 3D choices as buttons too
 or a screen reader: **Sit on the bench** (or **Get up**), **Read the book** (from anywhere: you
 walk to the bench first, as when you choose the book in 3D), **Start shared session** (or
 **Leave shared session**), and **Settings**: motion, how to move and turn in VR, the vignette and
-seated, as on the panel by the door; for the book, **Open it as text**, **Bring the book in front
-of me** while it is open, and **Reset view** (as Home: the book put down, its size and distance as
-they were at first, and you at the door). While the book is open the card goes out of its way, as
+seated, as on the panel by the door; for the book, **Open it as text**, and **Reset view** (as
+Home: the book put down, its size and distance as they were at first, and you at the door). While the book is open the card goes out of its way, as
 vrlbry's does, and comes back when the keyboard goes into it; **Text view** is by the buttons at
 the foot. The view itself is a picture to a screen reader, named for what is in it. With the book
 open, its words are there too, out of sight: a region named for the book holds the pages open (the
@@ -103,12 +104,67 @@ one in view, on a narrow screen), headed with where you are (*Pages 4 and 5*), w
 titles as headings, its paragraphs and stanzas whole even where they run over a page, and the
 contents as a list. Each turn of a page replaces it and is read out.
 
+While the book is open the card has its keys as buttons as well: **Contents** (C), **A−** and
+**A+** (− and +), **One page** or **Two pages** (P), **Theme** (N), **Text view** (T) and **In
+front of me** (F), so a remote, which has no letters, or whoever is in the card can reach them.
+
 The book is *By the Water*, a little anthology: Thoreau on the pond in *Walden*'s "The Ponds"
 (1854); Tennyson's "The Brook" (1855); Stevenson's "Where Go the Boats?" (1885); Hopkins's
 "Inversnaid" (written 1881); Wordsworth's "I wandered lonely as a Cloud" (1815); Keats's "To
 Autumn" (1820); and, to close it, Wordsworth's "The Tables Turned" ("Up! up! my Friend, and quit
 your books"). All are in the public domain. Thoreau's passage is Project Gutenberg's text of
 *Walden*; the poems are as Wikisource has them from the editions named in the book.
+
+## The TV app
+
+On an Android TV the garden runs in the hallway's app,
+[AriaMoKr/HallwayApp](https://github.com/AriaMoKr/HallwayApp), through the hallway's door: the site
+in a full-screen WebView that ends its user agent with ` HallwayTV/<version>`. The page then shows
+the 10-foot view, as the hallway does: larger text in the card, the hint and the text view, a thick
+focus ring on a dark halo, to be seen across the room, and no Enter VR or Fullscreen. The hint at
+the foot of the screen says what the keys do: walking, reading, in the text view and in the card.
+
+- **Walking**, ↑ and ↓ walk and ← and → turn, the view tipped a little down so that the dot in its
+  middle can come to rest on the bench. **OK** uses what the dot is on, as a gamepad's A does: the
+  bench (you walk there and sit), the book beside you, the door back, a spot on the ground. Sitting,
+  OK opens the book.
+- **Reading**, ← and → turn the pages. OK opens the contents beside them, ↑ and ↓ go through it,
+  and OK goes to that piece.
+- **Menu**, or holding **Back**, moves the focus into the card: Sit on the bench, Read the book,
+  Start shared session and Settings; and while reading, the book's keys as buttons (above), Get up
+  and Put the book down. There ↑ and ↓ go from control to control (a choice, such as Motion, is one
+  stop), ← and → change a choice, OK presses or ticks, and Back or Menu walks, or reads, again.
+- **Text view**, from the card, keeps the remote's keys on the page: ↑ and ↓ read on and back, ← and
+  → go a page, and Menu reaches its toolbar.
+- **Back** takes one step back at a time: out of the card; the text view's contents, then the text
+  view; the book's contents; back along a link followed in the book; the book put down; up from the
+  bench; then back a page, to the hallway's door. The book, and each link followed in it, are
+  entries in the page's history (common's `back-history.js`, as a browser's Back goes back through
+  them), so those steps are the app's own Back, through the history; the rest are the page's
+  (`backStep`, in `public/js/remote.js`). A book taken out with a gamepad alone, on a page nobody
+  has pressed a key on, may have no entry (Chromium leaves those out of Back's history): then the
+  page puts it down itself.
+- **Together.** A TV can't copy a link, so the card shows the invite link to open on a phone or a
+  computer.
+
+With TalkBack on, the remote's arrows are TalkBack's (the hallway's README says why): **channel up
+and down** stand for ↑ and ↓, and **rewind and fast-forward** for ← and →, walking and in the book,
+as the hint says.
+
+The TV's GPU is a phone's (a Mali-G52), and at the TV's pixel ratio of 2 (1920 × 1080) the garden
+drew 31 frames a second there at the way in, and 23 by the pond. On a TV it draws at a pixel ratio
+of 1 (960 × 540, the page's own size), which alone held 60 at the way in and reading on the bench,
+with almost nothing to spare by the pond. For that margin the water's ripples come from a picture
+of their noise rather than being worked out at every pixel (the most a frame went on), and the card
+has no blur behind it.
+
+The TV mode is [AriaMoKr/common](https://github.com/AriaMoKr/common)'s `tv.js` (its README's "The
+TV app" is the checklist this follows). `?tv=emulate` shows the TV's page in any browser, with the
+arrows, Enter for OK and Escape for Back in the card. Menu and Back are the app's: there
+`hallwayTV.menu()` and `hallwayTV.back()` stand in for them (when `back()` returns false, the app
+would go back a page: `history.back()`). HallwayApp's `tools/tv-check.mjs --url` measures the frame
+rate on the TV, of the live site or of a dev server over adb reverse (`npm start -- --host
+127.0.0.1`).
 
 ## Coming out of the hallway's door
 
@@ -170,8 +226,8 @@ Waving is as in the hallway. The **Wave** button at the bottom right, or a contr
 (it pulses, so you feel it go out), waves to everyone in the session: they get a toast saying you
 waved, and those out here see your avatar bob. A wave from anyone else, here or in the hallway, is
 a toast here too, and bobs their avatar when they are out here. **Start shared session**, on the
-panel or in the card, starts one here, and **Copy invite link** copies its address. The door back
-carries the room into the hallway. In the hallway, those out here count as elsewhere.
+panel or in the card, starts one here, and **Copy invite link** copies its address (on a TV, the
+card shows it). The door back carries the room into the hallway. In the hallway, those out here count as elsewhere.
 
 ## Running it
 

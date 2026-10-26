@@ -5,7 +5,8 @@
 // foot bridge into a pond, a trail over the bridge to a bench, and on the bench a book to read,
 // with vrlbry's book controls (book.js), its text view (text-view.js) and the browser's Back
 // along its links (back-history.js). The shared session (together.js) comes out here too, and
-// goes back in.
+// goes back in. In the hallway's Android TV app (common's tv.js) it is the 10-foot view, walked and
+// read with the remote.
 import * as THREE from 'three';
 import { DOOR, doorCrossed, doorSpawn, layoutGarden, surfaceAt } from './garden.js';
 import { HAZE, buildGarden } from './scene.js';
@@ -26,8 +27,19 @@ import { BackHistory } from 'common/back-history.js';
 import { BOOK_SUBTITLE, BOOK_TITLE, COLOPHON, PIECES } from './reading.js';
 import { renderPreview, previewView } from './preview.js';
 import { roomFromUrl } from 'layersharedsession/room.js';
+import { Remote, tvMode } from 'common/tv.js';
+import { backStep } from './remote.js';
 
 const params = new URLSearchParams(location.search);
+// The TV app's page (HallwayApp's WebView; ?tv=emulate, as if, in any browser): larger text, focus
+// rings seen across a room, no Enter VR or Fullscreen, the remote's keys (below).
+const tv = tvMode();
+document.documentElement.classList.toggle('tv', tv);
+// On the TV (a Mali-G52 driving 1920 x 1080 from a 960 x 540 page) the garden is drawn at the
+// page's size: at 2 it held 31 fps at the way in and 23 by the pond, at 1 about 60 (README).
+const TV_PIXEL_RATIO = 1;
+// The remote can't look up or down: on a TV the view rests a little down (controls.js restPitch).
+const TV_PITCH = -0.25;
 
 // Dev: emulate a Quest 3 with IWER (before anything asks navigator.xr). Chromium has a native
 // navigator.xr even without a headset, so it is replaced.
@@ -81,6 +93,7 @@ let together = null; // the shared session, made once the scene is (below)
 const overlay = new Overlay(way, {
   href: () => leaveUrl(way, together?.room ?? null),
   onLeave: () => together?.pause(),
+  tv,
 });
 
 let renderer;
@@ -90,7 +103,7 @@ try {
   overlay.noWebGL('This browser cannot show the garden in 3D. The way back to the Hallway is above.');
   throw err;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(tv ? TV_PIXEL_RATIO : Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.xr.enabled = true;
 renderer.xr.setReferenceSpaceType('local-floor');
@@ -119,7 +132,7 @@ rig.add(camera);
 scene.add(rig);
 
 const L = layoutGarden({ doorWidth, doorHeight });
-const garden = buildGarden(L, { names, glow, anisotropy });
+const garden = buildGarden(L, { names, glow, anisotropy, tv });
 scene.add(garden.group);
 // Through the doorway, the view the hallway publishes from its door to here; when that can't be
 // had, the one rendered from it here (tools/hallway-view.mjs). Elsewhere, its glow and name.
@@ -127,6 +140,10 @@ const views = hallwayViews(way, OUTSIDE_ID);
 if (views) garden.house.loadView([views, { views: new URL('views/views.json', location.href).href, id: views.id }]);
 
 const controls = new Controls({ renderer, camera, rig, scene, dom: renderer.domElement, layout: L });
+if (tv) {
+  controls.aimMiddle = true; // the dot in the middle, which OK uses (below)
+  controls.restPitch = TV_PITCH;
+}
 const nav = loadNav();
 controls.setNav(nav);
 // The accessibility settings every site on the origin shares (common/access.js, hallway.access):
@@ -164,7 +181,7 @@ function arrivalPose() {
 }
 {
   const s = arrivalPose();
-  controls.setPose(s.x, s.z, s.yaw, visit.pitch ?? 0);
+  controls.setPose(s.x, s.z, s.yaw, tv ? TV_PITCH : visit.pitch ?? 0);
 }
 
 // ── Going back in ────────────────────────────────────────────────────────────
@@ -222,7 +239,7 @@ controls.onBench = () => {
   controls.sit(() => {
     if (told) return;
     told = true;
-    overlay.toast(renderer.xr.isPresenting ? 'Point at the book beside you to read it' : 'A book lies beside you: Read the book opens it. Moving gets you up.', 5);
+    overlay.toast(renderer.xr.isPresenting ? 'Point at the book beside you to read it' : tv ? 'A book lies beside you: OK opens it. Moving gets you up.' : 'A book lies beside you: Read the book opens it. Moving gets you up.', 5);
   });
 };
 controls.onBook = () => controls.sit(() => openBook());
@@ -246,6 +263,10 @@ const backHistory = new BackHistory({
 addEventListener('popstate', (e) => backHistory.popstate(e.state));
 book.history = backHistory;
 book.onTrail = (depth) => backHistory.pushed(depth);
+// Whether the open book's entry is one a TV app's Back will come to: Chromium passes over the
+// entries of a page nobody has pressed a key on or clicked (a book taken out with a gamepad alone).
+// Then Back puts it down itself (stepBack).
+let bookEntry = false;
 function openBook() {
   if (book.isOpen) return;
   camera.updateMatrixWorld();
@@ -255,6 +276,7 @@ function openBook() {
   controls.book = book;
   overlay.setReading(true);
   backHistory.bookOut();
+  bookEntry = navigator.userActivation?.hasBeenActive ?? true;
   if (book.settings.textView) textView.open(); // "Open it as text" (a screen only)
 }
 /** Puts the book down; away: by the browser's Back, whose entries are gone already. */
@@ -266,20 +288,32 @@ function closeBook({ away = false } = {}) {
   overlay.hideBookText();
   textView.close({ keepPlace: false }); // focus back to Read the book
   if (!away) backHistory.cleared();
+  // The remote can't look up from where the book was held: the view as it rests.
+  if (tv && !renderer.xr.isPresenting) controls.pitch = controls.restPitch;
 }
 /** B, Y, Backspace: one step back in the book (its contents, the links followed), else it is put down. */
 function back() {
   if (!book.back()) closeBook();
 }
-controls.onPage = (side) => book.turn(side);
+// On a TV the remote leaves the focus on the view while the text view is open (below): its keys
+// read it, ← → a page from the reader's place, ↑ ↓ on or back, Esc or T back to the book in 3D.
+controls.onPage = (side) => (textView.isOpen ? textView.turn(side) : book.turn(side));
 controls.onCloseBook = closeBook;
 controls.onBookPress = (hit) => book.press(hit);
 controls.onBookAction = (action, value) => {
+  if (textView.isOpen && (action === 'contents-move' || action === 'enter' || action === 'escape' || action === 'textView')) {
+    if (action === 'contents-move') textView.scrollStep(value);
+    else if (action !== 'enter') textView.close();
+    return;
+  }
   if (action === 'font') book.changeFont(value);
   else if (action === 'theme') book.cycleTheme();
   else if (action === 'contents') book.toggleContents();
   else if (action === 'contents-move') book.moveContents(value);
-  else if (action === 'enter') book.chooseContents();
+  else if (action === 'enter') {
+    // A TV's OK: the contents, then the entry marked in it (↑ ↓).
+    if (!book.chooseContents() && tv) book.toggleContents(true);
+  }
   else if (action === 'pages') book.togglePages();
   else if (action === 'textView') textView.toggle();
   else if (action === 'front') book.toFront();
@@ -311,12 +345,24 @@ const textView = new TextView({
   putDown: () => closeBook(),
   back,
   presenting: () => renderer.xr.isPresenting,
-  onOpen: () => overlay.hideBookText(), // the view has them now
+  onOpen: () => {
+    overlay.hideBookText(); // the view has them now
+    overlay.setTextView(true);
+    // On a TV, the remote's arrows read it (controls.onBookAction) and Menu goes to its toolbar:
+    // the focus back on the view once the view has opened (it takes it, to its title).
+    if (remote) queueMicrotask(() => remote.walk());
+  },
   onClose: showBookText,
-  returnFocus: () => (book.isOpen ? overlay.textView : overlay.read),
+  returnFocus: () => {
+    overlay.setTextView(false);
+    if (!remote) return book.isOpen ? overlay.textView : overlay.read;
+    remote.walk();
+    return null;
+  },
 });
 overlay.onTextView = () => textView.toggle();
 overlay.onFront = () => book.toFront();
+overlay.onBook = (action, value) => controls.onBookAction(action, value);
 overlay.onReset = resetView;
 overlay.onTextViewPref = (on) => {
   book.settings.textView = on;
@@ -342,7 +388,47 @@ controls.onActivity = () => {
   active = true;
   overlay.hideHint();
 };
-overlay.setHint(matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse');
+overlay.setHint(tv ? 'tv' : matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse');
+
+// ── The TV's remote (common's tv.js) ─────────────────────────────────────────
+// Walking, the view holds the focus: the arrows walk and turn, and OK uses what the dot in the
+// middle is on (the bench, the book, the door, the panel, the ground); sitting, it opens the book
+// beside one; reading, it is the book's Enter, as the arrows are its pages and contents
+// (controls.js). Menu moves the focus into the card (Sit, Read, the book's controls, Settings),
+// and Back goes one step back (stepBack). The app asks window.hallwayTV what Back and Menu do.
+let remote = null;
+if (tv) {
+  renderer.domElement.setAttribute('aria-describedby', overlay.hint.id);
+  // The card, the buttons at the foot and the text view are all the remote's to reach (and what is
+  // covered by the text view while it is open isn't shown: style.css).
+  remote = new Remote({ root: document.body, view: renderer.domElement, use: useMiddle, step: stepBack });
+  remote.onMode = (inCard) => overlay.setInCard(inCard);
+  remote.answerApp(tv);
+}
+/** OK, walking (the remote has used the key: controls.js leaves it alone). */
+function useMiddle() {
+  if (book.isOpen) controls.onBookAction('enter'); // the contents, then the entry marked in it
+  else if (controls.seated) openBook(); // the book lies beside one, out of the dot's way
+  else controls.useMiddle();
+}
+/**
+ * Back, walking: one step back (remote.js backStep), as Esc and Backspace take them; false leaves
+ * it to the app, which goes back a page through the page's history: back along a link, the book
+ * put down (back-history.js), then back to the hallway's door.
+ */
+function stepBack() {
+  const s = backStep({
+    textView: textView.isOpen, toc: textView.contentsOpen, book: book.isOpen, contents: book.contents.visible,
+    trail: book.trail.length > 0, entry: bookEntry && backHistory.level > 0, seated: !!controls.seated,
+  });
+  if (s === 'toc') textView.closeContents();
+  else if (s === 'text') textView.close();
+  else if (s === 'contents') book.toggleContents(false);
+  else if (s === 'link') book.goBack();
+  else if (s === 'book') closeBook();
+  else if (s === 'stand') controls.stand();
+  return s !== null;
+}
 
 // ── Fullscreen, and the gamepad ──────────────────────────────────────────────
 
@@ -359,19 +445,21 @@ function onFullscreenChange() {
   overlay.setFullscreen(on);
   if (on) overlay.toast(controls.hasPad ? 'Esc or B leaves fullscreen' : 'Esc leaves fullscreen', 4);
 }
-// Browsers that cannot (an iPhone's) do not get the button.
-if (document.fullscreenEnabled || document.webkitFullscreenEnabled) {
+// Browsers that cannot (an iPhone's) do not get the button, nor does the TV app, which is full screen.
+if (!tv && (document.fullscreenEnabled || document.webkitFullscreenEnabled)) {
   overlay.showFullscreen(toggleFullscreen);
   document.addEventListener('fullscreenchange', onFullscreenChange);
   document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 }
 // As in vrlbry and the hallway: the gamepad takes over when used (its hint, and a dot in the middle
-// of the view to aim with), and the mouse takes it back. B or Back leaves fullscreen.
+// of the view to aim with), and the mouse takes it back. B or Back leaves fullscreen; on a TV it is
+// the remote's Back.
 controls.onPadActive = (on) => {
   if (on) overlay.setHint('gamepad');
 };
 controls.onPadBack = () => {
-  if (fullscreenElement()) toggleFullscreen();
+  if (remote) remote.padBack();
+  else if (fullscreenElement()) toggleFullscreen();
 };
 
 // ── VR ───────────────────────────────────────────────────────────────────────
@@ -406,7 +494,8 @@ renderer.xr.addEventListener('sessionend', () => {
   closeBook();
   showPanel();
 });
-navigator.xr?.isSessionSupported?.('immersive-vr').then((ok) => {
+// Not on a TV, which has no headset (nor, so far, a WebXR in its WebView).
+if (!tv) navigator.xr?.isSessionSupported?.('immersive-vr').then((ok) => {
   vrSupported = ok;
   showPanel();
   if (ok) overlay.showVR(enterVR);
@@ -417,8 +506,10 @@ navigator.xr?.isSessionSupported?.('immersive-vr').then((ok) => {
 const takeGranted = () => {
   if (!renderer.xr.isPresenting) enterVR();
 };
-if (window.outsideXrGranted) takeGranted();
-navigator.xr?.addEventListener?.('sessiongranted', takeGranted);
+if (!tv) {
+  if (window.outsideXrGranted) takeGranted();
+  navigator.xr?.addEventListener?.('sessiongranted', takeGranted);
+}
 
 // ── The control panel on the wall (and the same choices in the overlay) ──────
 
@@ -447,7 +538,7 @@ function toggleSession() {
     overlay.toast('You left the shared session');
   } else {
     together.start();
-    overlay.toast('Shared session started: Copy invite link to bring others out here', 5);
+    overlay.toast(tv ? 'Shared session started: the card shows the link that brings others out here' : 'Shared session started: Copy invite link to bring others out here', 5);
   }
 }
 /** A VR movement choice ('move' or 'turn'), kept for here and the hallway (common/nav.js). */
@@ -561,7 +652,9 @@ function step(dt) {
   book.update(dt);
   together.update(performance.now());
   garden.panel.setHover(controls.hoverPanel);
-  overlay.setAim(controls.padActive && !renderer.xr.isPresenting, !!controls.hover);
+  // The dot: a gamepad's, and a TV remote's while walking (reading, its OK is the book's).
+  overlay.setAim((controls.padActive || (remote !== null && !remote.inCard && !book.isOpen)) && !renderer.xr.isPresenting, !!controls.hover);
+  if (book.isOpen) overlay.setBook(book.contents.visible, book.single, book.settings.theme);
   if (!leaving && doorCrossed(L, head.x, head.z)) go();
   fade.update(dt);
 }
@@ -570,7 +663,8 @@ renderer.setAnimationLoop(() => {
   const now = performance.now();
   step(Math.min(0.1, (now - last) / 1000));
   last = now;
-  renderer.render(scene, camera);
+  // The text view covers the view: it is drawn again once that closes.
+  if (!textView.isOpen || renderer.xr.isPresenting) renderer.render(scene, camera);
 });
 
 let refitTimer = 0;
@@ -588,7 +682,7 @@ fade.to(0, blink(0.8));
 // For scripted testing. A hidden page gets no animation frames: drive it with tick().
 window.__outside = {
   THREE, renderer, scene, camera, rig, garden, layout: L, controls, overlay, fade, vignette, xrDevice, go, enterVR, together, book, way, visit,
-  textView, backHistory, openBook, closeBook, resetView, setAccess,
+  textView, backHistory, openBook, closeBook, resetView, setAccess, tv, remote, stepBack,
   /** The accessibility settings now, and whether motion is reduced. */
   get access() {
     return { ...access, reduce };

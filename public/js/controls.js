@@ -4,6 +4,9 @@
 //   gamepad: as in vrlbry, it takes over when used and the mouse takes it back: the left stick
 //            walks, the right one looks, A uses what the middle of the view is on (common's
 //            gamepad.js)
+//   TV:      the remote's arrows walk and turn (with TalkBack on, which keeps them, channel up and
+//            down and rewind and fast-forward), and OK uses the middle of the view (common's tv.js,
+//            main.js); keys are read through keyOf, as its OK and its spare keys come without a code
 //   headset: point and pull the trigger (or pinch) at the ground, the door, the bench or the
 //            control panel; the left stick walks (move 'smooth') or aims a teleport (move
 //            'teleport'), the right one turns in steps (turn 'snap') or smoothly (turn 'smooth');
@@ -29,6 +32,7 @@
 import * as THREE from 'three';
 import { GARDEN, SEAT, castRay, clampWalk, groundAt, panelButtonAt, route } from './garden.js';
 import { BUTTONS, firstPad, held, readPad } from 'common/gamepad.js';
+import { keyOf } from 'common/tv.js';
 
 const LOOK = 0.0045; // radians per pixel dragged
 const WALK = 1.9, RUN = 3.8, XR_WALK = 1.8; // metres per second
@@ -49,7 +53,7 @@ const KEYS = {
 };
 /** While the book is open: these turn its pages instead. */
 const PAGE_KEYS = { ArrowLeft: -1, ArrowRight: 1, PageUp: -1, PageDown: 1, Space: 1 };
-/** While the book is open: the keys for what else it does (vrlbry's), by code, as onBookAction's actions. */
+/** While the book is open: the keys for what else it does (vrlbry's), by code (keyOf), as onBookAction's actions. */
 const BOOK_KEYS = { KeyC: 'contents', KeyN: 'theme', KeyP: 'pages', KeyT: 'textView', KeyF: 'front', Backspace: 'back', Escape: 'escape', Enter: 'enter', NumpadEnter: 'enter' };
 /** A gamepad's buttons while the book is open (vrlbry's), by their index in the standard mapping: [action, value]. */
 const PAD_BOOK = {
@@ -130,6 +134,14 @@ export class Controls {
     this._pads = 0; // connected; none, and nothing is polled
     /** Whether a gamepad is connected. */
     this.hasPad = false;
+    /** The middle of the view is the pointer while walking, whatever is used (a TV, whose remote has none: main.js). */
+    this.aimMiddle = false;
+    /**
+     * The pitch the view comes back to (arriving, a walk's end, a jump, Home): level; a TV's a
+     * little down (main.js), as its remote can't look up or down, so that the dot in the middle
+     * falls on the ground ahead and on the bench as one comes up to it.
+     */
+    this.restPitch = 0;
     this.auto = null; // a walk under way: { points: [[x, z], …], i, face: yaw|null, speed, turn, then }
     /** Sitting on the bench: { lift } (in VR, how far the rig is lowered to bring the head to a seated height), or null. */
     this.seated = null;
@@ -166,7 +178,7 @@ export class Controls {
   }
 
   /** Puts the viewer at (x, z) facing yaw (and pitch), standing. */
-  setPose(x, z, yaw, pitch = 0) {
+  setPose(x, z, yaw, pitch = this.restPitch) {
     this.seated = null;
     this.rig.position.set(x, groundAt(this.layout, x, z), z);
     this.yaw = yaw;
@@ -238,7 +250,7 @@ export class Controls {
     p.set(x, groundAt(this.layout, x, z), z);
     if (face !== null) {
       this.yaw = face;
-      this.pitch = 0;
+      this.pitch = this.restPitch;
     }
     this._apply();
     then?.();
@@ -414,7 +426,7 @@ export class Controls {
       this._move(p.x + (-sin * f + cos * r) * step, p.z + (-cos * f - sin * r) * step);
     }
     // Buttons act once per press. B goes back in the book first, if it is open.
-    if (s.use && !this._padUse) this._useMiddle();
+    if (s.use && !this._padUse) this.useMiddle();
     if (s.back && !this._padBack) {
       if (this.book) this.onBookAction('back');
       else this.onPadBack();
@@ -450,8 +462,8 @@ export class Controls {
     return used;
   }
 
-  /** A on a gamepad: what the middle of the view is on, as a click there would. */
-  _useMiddle() {
+  /** A on a gamepad, or OK on a TV's remote: what the middle of the view is on, as a click there would. */
+  useMiddle() {
     this.camera.updateWorldMatrix(true, false);
     this._use(this._pickNdc(0, 0), 'screen');
   }
@@ -466,10 +478,10 @@ export class Controls {
     const last = a.i === a.points.length - 1;
     if (a.face !== null && (last || !a.turn)) {
       this.yaw += wrapAngle(a.face - this.yaw) * turn;
-      this.pitch += (0 - this.pitch) * turn;
+      this.pitch += (this.restPitch - this.pitch) * turn;
     } else if (a.turn && dist > 0.3) {
       this.yaw += wrapAngle(Math.atan2(-dx, -dz) - this.yaw) * turn;
-      this.pitch += (-0.1 - this.pitch) * turn;
+      this.pitch += (Math.min(-0.1, this.restPitch) - this.pitch) * turn;
     }
     const step = a.speed * dt;
     if (dist <= step) {
@@ -536,7 +548,8 @@ export class Controls {
 
   _updateHover() {
     let hit = null;
-    const aim = this.padActive;
+    // A TV aims from the middle while walking; reading, its OK is the book's Enter (main.js).
+    const aim = this.padActive || (this.aimMiddle && !this.book);
     if (aim || (this._mouse && !this._down)) {
       if (aim) this.camera.updateWorldMatrix(true, false);
       hit = aim ? this._pickNdc(0, 0) : this._pickScreen(this._mouse.x, this._mouse.y);
@@ -668,48 +681,51 @@ export class Controls {
       this.onBookAction('distance', e.deltaY * unit * WHEEL);
     }, { passive: false });
     window.addEventListener('keydown', (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // A key already used (a TV remote's OK, which main.js's use handles, reading too) is not walking's.
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const code = keyOf(e); // a TV remote's keys may come without a code: by key, as the code would name them
       // The overlay's own controls keep their keys: a radio button its arrows (as the hallway's
       // name field keeps its typing), and a button the Space or Enter that presses it; and so
       // does the text view (data-own-keys).
       if (e.target?.closest?.('input, textarea, select, [contenteditable], [data-own-keys]')) return;
-      if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') && e.target?.closest?.('button, a[href]')) return;
-      if (e.code === 'Home') {
+      if ((code === 'Space' || code === 'Enter' || code === 'NumpadEnter') && e.target?.closest?.('button, a[href]')) return;
+      if (code === 'Home') {
         e.preventDefault();
         this.onHome();
         return;
       }
       if (this.book) {
         // vrlbry's keys for the open book: what else it does, the text size, the contents' entries.
-        const action = BOOK_KEYS[e.code] ?? (e.key === '+' || e.key === '=' || e.key === '-' ? 'font' : e.code === 'ArrowUp' || e.code === 'ArrowDown' ? 'contents-move' : null);
+        const action = BOOK_KEYS[code] ?? (e.key === '+' || e.key === '=' || e.key === '-' ? 'font' : code === 'ArrowUp' || code === 'ArrowDown' ? 'contents-move' : null);
         if (action) {
           e.preventDefault();
           if (!e.repeat || action === 'contents-move') {
-            this.onBookAction(action, action === 'font' ? (e.key === '-' ? -1 : 1) : e.code === 'ArrowUp' ? -1 : 1);
+            this.onBookAction(action, action === 'font' ? (e.key === '-' ? -1 : 1) : code === 'ArrowUp' ? -1 : 1);
           }
           this.onActivity();
           return;
         }
-        if (e.code in PAGE_KEYS) {
+        if (code in PAGE_KEYS) {
           e.preventDefault();
-          if (!e.repeat) this.onPage(PAGE_KEYS[e.code]);
+          if (!e.repeat) this.onPage(PAGE_KEYS[code]);
           this.onActivity();
           return;
         }
       }
-      const k = KEYS[e.code];
+      const k = KEYS[code];
       if (!k) return;
-      if (e.code.startsWith('Arrow')) e.preventDefault();
+      if (code.startsWith('Arrow')) e.preventDefault();
       this.keys.add(k);
       // Reading: WASD still gets one up; the arrows are the book's.
-      if (/^Key[WASD]$/.test(e.code)) this.keys.add('wasd');
+      if (/^Key[WASD]$/.test(code)) this.keys.add('wasd');
       if (k !== 'run') this.auto = null;
       this.onActivity();
     });
     window.addEventListener('keyup', (e) => {
-      const k = KEYS[e.code];
+      const code = keyOf(e);
+      const k = KEYS[code];
       if (k) this.keys.delete(k);
-      if (/^Key[WASD]$/.test(e.code) && !['KeyW', 'KeyA', 'KeyS', 'KeyD'].some((c) => this.keys.has(KEYS[c]))) this.keys.delete('wasd');
+      if (/^Key[WASD]$/.test(code) && !['KeyW', 'KeyA', 'KeyS', 'KeyD'].some((c) => this.keys.has(KEYS[c]))) this.keys.delete('wasd');
     });
     window.addEventListener('blur', () => this.keys.clear());
     // A browser shows a page a gamepad once one of its buttons is pressed.
