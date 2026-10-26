@@ -3,8 +3,8 @@
 // edges). Its shader ripples it, flowing downstream in the stream and stirred by the wind on the
 // pond, reflects the sky (the same picture as the dome, common's sky.js), catches the sun where
 // the baked shadows let it, and is brown over the shallows and dark green-blue over the deep. On a
-// TV its ripples come from a picture of the same noise (rippleTexture), the slope in it too: worked
-// out at every pixel, they cost a TV's GPU most of a frame.
+// TV (lite.js 'water') its ripples come from a picture of the same noise (rippleTexture), the slope
+// in it too: worked out at every pixel, they cost four or five times as much (README, "The TV app").
 import * as THREE from 'three';
 import { STREAM_X, WATER_UNDER, farWidth, nearWidth, streamAt, waterDepth, waterLevel } from './garden.js';
 import { sunlit } from './bake.js';
@@ -134,10 +134,10 @@ void main() {
 
 /**
  * The water's mesh and material. `env` is the baked lighting's (for its shadows on the water);
- * `tv`, a TV's ripples (rippleTexture).
+ * `rippleMap`, the ripples read from a picture (rippleTexture: lite.js 'water', a TV's).
  * @returns {{ mesh: THREE.Mesh, update(time: number): void }}
  */
-export function buildWater(env, skyMap, { tv = false } = {}) {
+export function buildWater(env, skyMap, { rippleMap = false } = {}) {
   const b = new Builder();
   const STEP = 0.2, ACROSS = 22, UNDER = WATER_UNDER; // under the banks
   const xs = [];
@@ -201,7 +201,7 @@ export function buildWater(env, skyMap, { tv = false } = {}) {
     fog: true,
   });
   material.uniforms.uSky.value = skyMap;
-  if (tv) {
+  if (rippleMap) {
     material.defines = { RIPPLE_MAP: '' };
     material.uniforms.uRipples = { value: rippleTexture() };
   }

@@ -29,15 +29,20 @@ import { renderPreview, previewView } from './preview.js';
 import { roomFromUrl } from 'layersharedsession/room.js';
 import { Remote, tvMode } from 'common/tv.js';
 import { backStep } from './remote.js';
+import { liteParts } from './lite.js';
 
 const params = new URLSearchParams(location.search);
 // The TV app's page (HallwayApp's WebView; ?tv=emulate, as if, in any browser): larger text, focus
 // rings seen across a room, no Enter VR or Fullscreen, the remote's keys (below).
 const tv = tvMode();
 document.documentElement.classList.toggle('tv', tv);
-// On the TV (a Mali-G52 driving 1920 x 1080 from a 960 x 540 page) the garden is drawn at the
-// page's size: at 2 it held 31 fps at the way in and 23 by the pond, at 1 about 60 (README).
-const TV_PIXEL_RATIO = 1;
+// The garden drawn lighter (lite.js): on a TV all of it, in any browser what ?lite= asks for. On the
+// TV (a Mali-G52 driving 1920 x 1080 from a 960 x 540 page) it is drawn at the page's size: at 2 it
+// held 31 fps at the way in and 23 by the pond, at 1 about 60 (README); and its textures are
+// filtered less, as the ground, read at a grazing angle, costs most of what is left.
+const lite = liteParts(location.search, tv);
+const LITE_PIXEL_RATIO = 1, LITE_ANISOTROPY = 2;
+document.documentElement.classList.toggle('lite-card', lite.has('card'));
 // The remote can't look up or down: on a TV the view rests a little down (controls.js restPitch).
 const TV_PITCH = -0.25;
 
@@ -103,7 +108,7 @@ try {
   overlay.noWebGL('This browser cannot show the garden in 3D. The way back to the Hallway is above.');
   throw err;
 }
-renderer.setPixelRatio(tv ? TV_PIXEL_RATIO : Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(lite.has('ratio') ? LITE_PIXEL_RATIO : Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.xr.enabled = true;
 renderer.xr.setReferenceSpaceType('local-floor');
@@ -111,7 +116,7 @@ renderer.xr.setReferenceSpaceType('local-floor');
 renderer.domElement.setAttribute('role', 'img');
 renderer.domElement.setAttribute('aria-label', 'A small garden: a lawn, a stream and a pond, a foot bridge, and a bench');
 document.getElementById('app').append(renderer.domElement);
-const anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+const anisotropy = Math.min(lite.has('filter') ? LITE_ANISOTROPY : 8, renderer.capabilities.getMaxAnisotropy());
 setAnisotropy(anisotropy);
 
 const scene = new THREE.Scene();
@@ -132,7 +137,7 @@ rig.add(camera);
 scene.add(rig);
 
 const L = layoutGarden({ doorWidth, doorHeight });
-const garden = buildGarden(L, { names, glow, anisotropy, tv });
+const garden = buildGarden(L, { names, glow, anisotropy, lite });
 scene.add(garden.group);
 // Through the doorway, the view the hallway publishes from its door to here; when that can't be
 // had, the one rendered from it here (tools/hallway-view.mjs). Elsewhere, its glow and name.

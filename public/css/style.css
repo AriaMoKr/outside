@@ -171,17 +171,19 @@ body:has(.tv:not([hidden])) #overlay, #view-overlay:has(> .tv:not([hidden])) > .
 .invite-text { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
 .invite-link { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
 
+/* No blur behind the card (lite.js 'card', a TV's: its GPU has none to spare, README), and so a
+   darker card, for its words to stand out from the garden. */
+html.lite-card .card { backdrop-filter: none; background: rgba(20, 28, 25, 0.95); }
+
 /* The 10-foot view: the Android TV app's page (common's tv.js), 960 × 540 and seen from across a
-   room, as the hallway's. Larger text, focus rings that show from the sofa on any background, the
-   TV's safe margins (48 px at the sides, 27 at the top and bottom), and no blur behind the card (a
-   TV's GPU has none to spare: README). */
+   room, as the hallway's. Larger text, focus rings that show from the sofa on any background, and
+   the TV's safe margins (48 px at the sides, 27 at the top and bottom). */
 html.tv, html.tv body { font-size: 18px; }
 html.tv :focus-visible { outline: 4px solid #ffd98a; outline-offset: 3px; box-shadow: 0 0 0 9px rgba(0, 0, 0, 0.65); }
 html.tv .settings label:has(input:focus-visible) { outline: 4px solid #ffd98a; outline-offset: 4px; border-radius: 4px; }
 html.tv .settings label input:focus-visible { outline-width: 2px; outline-offset: 1px; box-shadow: none; }
 html.tv .card {
   top: 27px; left: 48px; width: min(440px, 46vw); max-height: calc(100vh - 54px); overflow-y: auto; padding: 14px 18px 16px;
-  backdrop-filter: none; background: rgba(20, 28, 25, 0.95);
 }
 html.tv .brand { font-size: 26px; }
 html.tv .way-back { padding: 4px 14px; font-size: 16px; }

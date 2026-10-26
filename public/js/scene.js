@@ -32,17 +32,28 @@ export const LIGHT = {
 /** The haze far off, which the fog fades to. */
 export const HAZE = '#d6d3bf';
 
+// The ground's shaders. GROUND_LITE (lite.js 'ground', a TV's) reads less per pixel: the grass's
+// large-scale variation once a vertex (it changes over metres; the grid's step is 0.2 m, the
+// meadow's 2), and the trail's gravel and the banks' mud only where they are.
 const terrainVertex = /* glsl */ `
 attribute vec2 splat; // trail, mud
 varying vec3 vColor;
 varying vec2 vSplat;
 varying vec2 vGround;
+#ifdef GROUND_LITE
+uniform sampler2D uGrass;
+varying float vMacro;
+#endif
 #include <fog_pars_vertex>
 void main() {
   vColor = color;
   vSplat = splat;
   vec4 w = modelMatrix * vec4(position, 1.0);
   vGround = w.xz;
+#ifdef GROUND_LITE
+  // A mipmap level about as coarse as the grid (21 texels to its step), so it doesn't alias.
+  vMacro = 0.82 + 0.36 * textureLod(uGrass, vGround / 9.7 + 0.37, 4.5).g;
+#endif
   vec4 mvPosition = viewMatrix * w;
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
@@ -55,12 +66,24 @@ uniform sampler2D uMud;
 varying vec3 vColor;
 varying vec2 vSplat;
 varying vec2 vGround;
+#ifdef GROUND_LITE
+varying float vMacro;
+#endif
 #include <fog_pars_fragment>
 void main() {
   // Grass at two scales, so its repeat doesn't show; then the trail's gravel and the banks' mud over it.
+#ifdef GROUND_LITE
+  vec3 c = texture2D(uGrass, vGround / 2.2).rgb * vMacro;
+  // Where there is none (most of the lawn), neither is read. A branch some pixels of a 2 x 2 block
+  // may not take: the mipmap's derivatives are taken before it.
+  vec2 gx = dFdx(vGround), gy = dFdy(vGround);
+  if (vSplat.x > 0.0) c = mix(c, textureGrad(uPath, vGround / 1.6, gx / 1.6, gy / 1.6).rgb, vSplat.x);
+  if (vSplat.y > 0.0) c = mix(c, textureGrad(uMud, vGround / 1.4, gx / 1.4, gy / 1.4).rgb, vSplat.y);
+#else
   vec3 grass = texture2D(uGrass, vGround / 2.2).rgb * (0.82 + 0.36 * texture2D(uGrass, vGround / 9.7 + 0.37).g);
   vec3 c = mix(grass, texture2D(uPath, vGround / 1.6).rgb, vSplat.x);
   c = mix(c, texture2D(uMud, vGround / 1.4).rgb, vSplat.y);
+#endif
   gl_FragColor = vec4(c * vColor, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -73,9 +96,9 @@ void main() {
  * @param {object} o
  * @param {{ title: string, subtitle: string, sign: string }} o.names what the door back's plaque and sign say
  * @param {string} o.glow its colour
- * @param {boolean} [o.tv] a TV's (main.js): the water's ripples from a picture (water.js)
+ * @param {Set<string>} [o.lite] the lighter versions drawn (lite.js): 'water', 'ground'
  */
-export function buildGarden(L, { names, glow, anisotropy = 1, tv = false }) {
+export function buildGarden(L, { names, glow, anisotropy = 1, lite = new Set() }) {
   const started = performance.now();
   const group = new THREE.Group();
   group.name = 'garden';
@@ -191,10 +214,11 @@ export function buildGarden(L, { names, glow, anisotropy = 1, tv = false }) {
     vertexColors: true,
     fog: true,
   });
+  if (lite.has('ground')) terrainMaterial.defines = { GROUND_LITE: '' };
   terrainMaterial.uniforms.uGrass.value = grassTexture();
   terrainMaterial.uniforms.uPath.value = pathTexture();
   terrainMaterial.uniforms.uMud.value = mudTexture();
-  add(groundGeometry, terrainMaterial, 'ground');
+  const groundMesh = add(groundGeometry, terrainMaterial, 'ground');
 
   /** The ground's baked light at (x, z) (bilinear on the grid), for what grows from it. */
   const groundLightAt = (x, z, out) => {
@@ -236,10 +260,19 @@ export function buildGarden(L, { names, glow, anisotropy = 1, tv = false }) {
 
   // The water, and the sky over it all.
   const sky = skyTexture();
-  const water = buildWater(env, sky, { tv });
+  const water = buildWater(env, sky, { rippleMap: lite.has('water') });
   group.add(water.mesh);
   const dome = skyDome(sky);
   group.add(dome);
+  // What costs most a pixel is drawn after what stands in front of it, so the depth test passes
+  // over what is hidden: the water (over the stream's bed), then the ground (under the hedges, the
+  // trees, the house and the grass), then the sky, which common's sky.js draws first, but which
+  // tests depth and is farther than everything (the dome's 90 m against the meadow's 83 m at most,
+  // from anywhere one can stand), so only what shows of it is drawn. The same picture, a quarter
+  // less work for the GPU (README, "The TV app").
+  water.mesh.renderOrder = 1;
+  groundMesh.renderOrder = 2;
+  dome.renderOrder = 3;
 
   console.info(`outside: the garden built in ${Math.round(performance.now() - started)} ms`);
   return {

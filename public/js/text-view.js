@@ -463,9 +463,15 @@ export class TextView {
   _part(dir) {
     const part = this.part + dir;
     if (part < 0 || part >= partCount(this.text)) return;
-    const at = [partSections(part)[0], -1, 0];
+    this._goTo(partSections(part)[0]);
+  }
+
+  /** A section's part, from its start: the previous or next one, or a piece in the contents. */
+  _goTo(section) {
+    const at = [section, -1, 0];
     this._aim = at;
-    // The spread may show the part's start already: the view goes there anyway.
+    // The spread may show the part's start already (a piece begun on its right-hand page): the
+    // view goes there anyway.
     if (!this.book.jumpToPlace(at)) this.follow();
     this._aim = null;
     this.$('.tv-title').focus({ preventScroll: true });
@@ -487,8 +493,8 @@ export class TextView {
         a.addEventListener('click', (e) => {
           e.preventDefault();
           this._toggleToc(false);
-          this.book.goTo(section);
-          this.$('.tv-title').focus({ preventScroll: true });
+          this.book.toggleContents(false);
+          this._goTo(section);
         });
         li.append(a, this.doc.createTextNode(` · ${piece.author}`));
         list.append(li);

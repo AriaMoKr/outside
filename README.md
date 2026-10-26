@@ -152,11 +152,41 @@ and down** stand for ↑ and ↓, and **rewind and fast-forward** for ← and �
 as the hint says.
 
 The TV's GPU is a phone's (a Mali-G52), and at the TV's pixel ratio of 2 (1920 × 1080) the garden
-drew 31 frames a second there at the way in, and 23 by the pond. On a TV it draws at a pixel ratio
-of 1 (960 × 540, the page's own size), which alone held 60 at the way in and reading on the bench,
-with almost nothing to spare by the pond. For that margin the water's ripples come from a picture
-of their noise rather than being worked out at every pixel (the most a frame went on), and the card
-has no blur behind it.
+drew 31 frames a second there at the way in, and 23 by the pond. A pixel ratio of 1 alone held 60 at
+the way in and reading on the bench, with almost nothing to spare by the pond. So on a TV the garden
+is drawn lighter, in five ways (`public/js/lite.js`):
+
+- **ratio**: at a pixel ratio of 1 (960 × 540, the page's own size), a quarter of the pixels.
+- **ground**: the lawn's shader reads the trail's gravel and the banks' mud only where they are, and
+  the grass's large-scale variation once a vertex rather than at every pixel.
+- **filter**: the textures filtered at 2× anisotropy rather than 8×.
+- **water**: the ripples read from a picture of their noise and its slope rather than worked out at
+  every pixel, which costs the water four or five times as much.
+- **card**: no blur behind the card.
+
+`?lite=` turns any of them on in any browser, to see that the garden still looks as it should:
+`?lite=water,ground`, or `?lite=all` (`?tv=emulate` has them all). On every screen the ground, the
+water and then the sky are drawn after everything in front of them, so the GPU skips their pixels
+where something hides them: the same picture, with less work.
+
+What each part cost was measured on this project's computer (a laptop's RTX 4090, through ANGLE's
+Direct3D 11) with the GPU's own timer (`EXT_disjoint_timer_query_webgl2`), drawing the frame into a
+960 × 540 target over and over and taking the fastest of fifteen rounds. Of a frame at a pixel ratio
+of 2 (about 0.25 ms), the ground took most, 0.04 to 0.08 ms (what hiding it saved, and what drawing
+it alone cost), then the water, 0.02 to 0.07; the trees and hedges, the grass and the sky took at
+most three hundredths of a millisecond each, and there are no shadow maps (the sun's shadows are
+baked into the vertices' colours). The card's blur is
+the compositor's work, which that timer doesn't see. The GPU's time per frame, in milliseconds:
+
+| On this computer        | At the way in | By the pond  | Reading on the bench |
+| ----------------------- | ------------- | ------------ | -------------------- |
+| Before (pixel ratio 2)  | 0.255         | 0.232–0.267  | 0.201                |
+| A TV now                | 0.073         | 0.058–0.067  | 0.048                |
+| A TV now, at ratio 2    | 0.189         | 0.161–0.184  | 0.147                |
+
+That is 71% to 76% less than before; at the same pixel ratio, the lighter ground, filtering and
+water with the drawing order take off 26% to 31%. A TV's GPU (tiled, and far slower) need not share
+these proportions: its own frame rate is HallwayApp's `tools/tv-check.mjs`'s to measure.
 
 The TV mode is [AriaMoKr/common](https://github.com/AriaMoKr/common)'s `tv.js` (its README's "The
 TV app" is the checklist this follows). `?tv=emulate` shows the TV's page in any browser, with the
