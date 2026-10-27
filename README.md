@@ -122,18 +122,22 @@ On an Android TV the garden runs in the hallway's app,
 in a full-screen WebView that ends its user agent with ` HallwayTV/<version>`. The page then shows
 the 10-foot view, as the hallway does: larger text in the card, the hint and the text view, a thick
 focus ring on a dark halo, to be seen across the room, and no Enter VR or Fullscreen. The hint at
-the foot of the screen says what the keys do: walking, reading, in the text view and in the card.
+the foot of the screen says what the keys do: walking, sitting, reading, in the text view and in the
+card.
 
 - **Walking**, ↑ and ↓ walk and ← and → turn, the view tipped a little down so that the dot in its
   middle can come to rest on the bench. **OK** uses what the dot is on, as a gamepad's A does: the
-  bench (you walk there and sit), the book beside you, the door back, a spot on the ground. Sitting,
-  OK opens the book.
+  bench (you walk there and sit), the book beside you, the door back, a spot on the ground.
+- **Sitting**, OK opens the book, and Back stands up (as ↑ and ↓ do, walking off).
 - **Reading**, ← and → turn the pages. OK opens the contents beside them, ↑ and ↓ go through it,
   and OK goes to that piece.
 - **Menu**, or holding **Back**, moves the focus into the card: Sit on the bench, Read the book,
   Start shared session and Settings; and while reading, the book's keys as buttons (above), Get up
   and Put the book down. There ↑ and ↓ go from control to control (a choice, such as Motion, is one
   stop), ← and → change a choice, OK presses or ticks, and Back or Menu walks, or reads, again.
+  Menu goes back to the control last left in the card, but once the book is open it goes to the
+  book's buttons, Contents first. Sit on the bench and Read the book give the focus back to the
+  garden, so the arrows walk, or turn the pages, at once.
 - **Text view**, from the card, keeps the remote's keys on the page: ↑ and ↓ read on and back, ← and
   → go a page, and Menu reaches its toolbar.
 - **Back** takes one step back at a time: out of the card; the text view's contents, then the text

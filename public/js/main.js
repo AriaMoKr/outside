@@ -253,8 +253,24 @@ controls.onSeat = (seated) => {
   overlay.setSeated(seated);
 };
 // The overlay's buttons do as the bench and the book do in 3D: on a screen, one walks there first.
-overlay.onBench = (sit) => (sit ? controls.onBench() : controls.stand());
-overlay.onRead = () => (book.isOpen ? closeBook() : controls.sit(() => openBook()));
+// On a TV, Sit on the bench and Read the book give the focus back to the view, as Back from the
+// card does, so the arrows walk, or turn the pages, at once.
+overlay.onBench = (sit) => {
+  if (!sit) {
+    controls.stand();
+    return;
+  }
+  remote?.walk();
+  controls.onBench();
+};
+overlay.onRead = () => {
+  if (book.isOpen) {
+    closeBook();
+    return;
+  }
+  remote?.walk();
+  controls.sit(() => openBook());
+};
 // The browser's Back, with the book open, goes back along the contents' links, then puts it down
 // (common's back-history.js). The prefix keeps the names this site's own copy gave its fields in an
 // entry's state (outsideBook…), so entries already in a visitor's tab are still the book's.
@@ -280,6 +296,9 @@ function openBook() {
   if (!renderer.xr.isPresenting) controls.pitch = pitch;
   controls.book = book;
   overlay.setReading(true);
+  // On a TV, Menu goes to the book's buttons now (the remote's first, below), not back to the
+  // control last left in the card. Common's Remote has no way to say so but forgetting that one.
+  if (remote) remote._last = null;
   backHistory.bookOut();
   bookEntry = navigator.userActivation?.hasBeenActive ?? true;
   if (book.settings.textView) textView.open(); // "Open it as text" (a screen only)
@@ -406,7 +425,9 @@ if (tv) {
   renderer.domElement.setAttribute('aria-describedby', overlay.hint.id);
   // The card, the buttons at the foot and the text view are all the remote's to reach (and what is
   // covered by the text view while it is open isn't shown: style.css).
-  remote = new Remote({ root: document.body, view: renderer.domElement, use: useMiddle, step: stepBack });
+  // Menu with no control to come back to: while reading, the book's buttons (Contents first);
+  // else the card's first stop.
+  remote = new Remote({ root: document.body, view: renderer.domElement, use: useMiddle, step: stepBack, first: () => (book.isOpen ? overlay.bookTools : null) });
   remote.onMode = (inCard) => overlay.setInCard(inCard);
   remote.answerApp(tv);
 }

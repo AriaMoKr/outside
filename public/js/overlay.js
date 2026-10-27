@@ -34,9 +34,10 @@ const READING = {
   mouse: 'Click a page or ← → to turn it · C contents · T text view · Esc puts it down',
   gamepad: 'A on a page, or LB RB, turns it · X contents · B goes back, then puts it down',
 };
-/** A TV's remote (common's tv.js): walking, reading, reading as text, and in the card (the reader's or the walker's). */
+/** A TV's remote (common's tv.js): walking, sitting, reading, reading as text, and in the card (the reader's or the walker's). */
 const TV = {
   walk: 'Arrows: walk and turn · OK: what the dot is on · Menu or hold Back: sit, read and settings\nWith TalkBack: channel up and down walk, rewind and fast-forward turn',
+  sit: 'OK: read the book · Back: stand up · Menu or hold Back: the card',
   read: '← →: turn the page · OK: the contents, ↑ ↓ in it · Menu: the book\'s controls · Back: one step back',
   text: '↑ ↓: read on · ← →: a page · Menu: its toolbar · Back: the book in 3D',
   card: 'Up, down: from control to control · left, right: a choice · OK: choose · Back: walk again',
@@ -225,10 +226,12 @@ export class Overlay {
     this.asText.checked = on;
   }
 
-  /** Sitting on the bench, or not: the bench's button sits down, or gets up. */
+  /** Sitting on the bench, or not: the bench's button sits down, or gets up; on a TV, the hint says what the remote does now. */
   setSeated(on) {
+    if (this._seated === on) return;
     this._seated = on;
     this.bench.textContent = on ? 'Get up' : 'Sit on the bench';
+    if (this._how === 'tv') this._showHint();
   }
 
   /** In a shared session (or paused in one, going through a door), or not: its button leaves, or starts one. */
@@ -248,7 +251,7 @@ export class Overlay {
     this.hint.classList.remove('gone');
     this.hint.textContent = this._how !== 'tv' ? (this._reading ? READING : HINTS)[this._how]
       : this._inCard ? (this._reading ? TV.cardReading : TV.card)
-      : this._textView ? TV.text : this._reading ? TV.read : TV.walk;
+      : this._textView ? TV.text : this._reading ? TV.read : this._seated ? TV.sit : TV.walk;
     this._placeHint();
     clearTimeout(this._hintTimer);
     if (seconds) this._hintTimer = setTimeout(() => this.hideHint(), seconds * 1000);
