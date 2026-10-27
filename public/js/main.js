@@ -297,8 +297,8 @@ function openBook() {
   controls.book = book;
   overlay.setReading(true);
   // On a TV, Menu goes to the book's buttons now (the remote's first, below), not back to the
-  // control last left in the card. Common's Remote has no way to say so but forgetting that one.
-  if (remote) remote._last = null;
+  // control last left in the card, such as Read the book.
+  remote?.forget();
   backHistory.bookOut();
   bookEntry = navigator.userActivation?.hasBeenActive ?? true;
   if (book.settings.textView) textView.open(); // "Open it as text" (a screen only)
