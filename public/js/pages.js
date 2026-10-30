@@ -348,15 +348,28 @@ export function spreadLabel(pages, indices) {
 const HEADINGS = { bookTitle: 3, heading: 3, title: 3 };
 
 /**
+ * A block of the open pages' words, as a screen reader reads them (pageBlocks, readingText), one
+ * type per kind.
+ * @typedef {{ kind: 'heading', level: number, text: string }} HeadingBlock
+ * @typedef {{ kind: 'paragraph', text: string, continued: boolean }} ParagraphBlock
+ * @typedef {{ kind: 'verse', lines: string[], continued: boolean, carried: boolean }} VerseBlock
+ * @typedef {{ kind: 'list', items: string[], entries?: { title: string, page: string, by: string }[] }} ListBlock
+ * @typedef {HeadingBlock | ParagraphBlock | VerseBlock | ListBlock} ReadingBlock
+ */
+
+/**
  * A page's words as blocks a screen reader reads: { kind: 'heading', level, text },
  * { kind: 'paragraph', text }, { kind: 'verse', lines } (a stanza) or { kind: 'list', items } (the
  * contents: "title, author, page n"). Lines set apart are joined again with a space; a paragraph or
  * stanza that began on an earlier page is `continued` (and a verse line carried onto this one,
  * `carried`). The running head and the page number are left out: the label says where one is.
+ * @returns {ReadingBlock[]}
  */
 export function pageBlocks(page) {
+  /** @type {ReadingBlock[]} */
   const blocks = [];
-  let open = null; // the block the next line of the same type may join: { block, type }
+  /** The block the next line of the same type may join, and that type. @type {{ block: HeadingBlock | ParagraphBlock | VerseBlock, type: string } | null} */
+  let open = null;
   for (const it of page.items) {
     if (it.rule) {
       open = null;
@@ -376,18 +389,20 @@ export function pageBlocks(page) {
       open = null;
     } else if (it.type === 'body' && page.kind === 'verse') {
       if (open?.type === 'body' && !it.start) {
-        const lines = open.block.lines;
+        const lines = /** @type {VerseBlock} */ (open.block).lines; // on a verse page, the body's blocks are stanzas
         if (it.carried) lines[lines.length - 1] += ` ${words}`;
         else lines.push(words);
       } else {
+        /** @type {VerseBlock} */
         const block = { kind: 'verse', lines: [words], continued: !it.start, carried: !!it.carried };
         blocks.push(block);
         open = { block, type: 'body' };
       }
     } else if (joins) {
-      open.block.text += ` ${words}`;
+      /** @type {HeadingBlock | ParagraphBlock} */ (open.block).text += ` ${words}`; // a stanza's lines join it above, so this is a heading or a paragraph
     } else {
       const level = HEADINGS[it.type];
+      /** @type {HeadingBlock | ParagraphBlock} */
       const block = level ? { kind: 'heading', level, text: words } : { kind: 'paragraph', text: words, continued: it.type === 'body' && !it.start };
       blocks.push(block);
       open = { block, type: it.type };
@@ -405,20 +420,20 @@ export function pageBlocks(page) {
  * The words of the pages open (indices, in reading order), for a screen reader: { label, blocks },
  * the label as spreadLabel says it, and a paragraph or stanza that runs from one page onto the next
  * read as one.
+ * @returns {{ label: string, blocks: ReadingBlock[] }}
  */
 export function readingText(pages, indices) {
+  /** @type {ReadingBlock[]} */
   const blocks = [];
   for (const i of indices) {
     for (const b of pageBlocks(pages[i])) {
       const prev = blocks.at(-1);
-      if (b.continued && prev?.kind === b.kind) {
-        if (b.kind === 'paragraph') prev.text += ` ${b.text}`;
-        else {
-          const [first, ...rest] = b.lines;
-          if (b.carried) prev.lines[prev.lines.length - 1] += ` ${first}`;
-          else prev.lines.push(first);
-          prev.lines.push(...rest);
-        }
+      if (b.kind === 'paragraph' && b.continued && prev?.kind === 'paragraph') prev.text += ` ${b.text}`;
+      else if (b.kind === 'verse' && b.continued && prev?.kind === 'verse') {
+        const [first, ...rest] = b.lines;
+        if (b.carried) prev.lines[prev.lines.length - 1] += ` ${first}`;
+        else prev.lines.push(first);
+        prev.lines.push(...rest);
       } else blocks.push(b);
     }
   }

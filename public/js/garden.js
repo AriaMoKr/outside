@@ -45,6 +45,7 @@ export const PANEL = { x: 1.6, y: 1.32, width: 0.56, height: 0.84, depth: 0.03 }
  * vignette, seated), then the shared session.
  */
 export const PANEL_PX = { width: 512, height: 768 };
+/** @type {[string, number, number, number, number][]} */
 export const PANEL_BUTTONS = [
   ['vr', 32, 74, 480, 136],
   ['move:teleport', 160, 160, 314, 218],
@@ -610,6 +611,7 @@ function gridPath(L, a, b) {
  * there when nothing is in the way, else round the water (over the bridge when it is between
  * them), the trunks and the bench, the corners of the way cut wherever a straight walk is clear.
  * [[x, z], …], ending at the target; empty when there is no way.
+ * @returns {[number, number][]}
  */
 export function route(L, fx, fz, tx, tz) {
   if (!walkable(L, tx, tz)) {
@@ -624,12 +626,14 @@ export function route(L, fx, fz, tx, tz) {
   const cells = a >= 0 && b >= 0 ? gridPath(L, a, b) : null;
   if (!cells) return [];
   const G = L.grid;
+  /** @type {[number, number][]} */
   const pts = cells.map((k) => {
     const i = k % G.nx;
     return [G.x0 + i * G.step, G.z0 - ((k - i) / G.nx) * G.step];
   });
   pts[pts.length - 1] = [tx, tz];
   // From where one is, on to the farthest point a straight walk reaches, and again from there.
+  /** @type {[number, number][]} */
   const out = [];
   let at = [fx, fz], i = -1;
   while (i < pts.length - 1) {

@@ -22,6 +22,11 @@ export function previewView(p = PREVIEW, from = { x: 0, y: 0, z: -0.6 }) {
 /**
  * Renders it into a canvas, as the screen would show it (tone mapped, sRGB): the renderer is
  * resized for it and drawn to its own canvas, read at once, then put back.
+ * @param {THREE.WebGLRenderer} renderer
+ * @param {THREE.Scene} scene
+ * @param {THREE.Camera} camera the view's, drawn again afterwards
+ * @param {{ hide?: THREE.Object3D[], from?: { x: number, y: number, z: number }, view?: typeof PREVIEW }} [o]
+ *   what is left out of it, where it is taken from (previewView's, by default the door), and its size
  * @returns {HTMLCanvasElement}
  */
 export function renderPreview(renderer, scene, camera, { hide = [], from, view = PREVIEW } = {}) {

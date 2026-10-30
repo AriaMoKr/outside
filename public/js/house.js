@@ -32,6 +32,7 @@ const CORNICE = HOUSE.height - 0.36;
  * @param {Builder} o.trim the untextured, vertex-coloured builder (stone, paint, wood)
  * @param {(b: Builder, o?: object) => THREE.BufferGeometry} o.lit bakes a builder's light, returns its geometry
  * @param {(p: number[], n: number[]) => THREE.Color} o.lightColor the light at a point
+ * @param {number} [o.anisotropy] its textures' anisotropic filtering
  */
 export function buildHouse(L, { names, glow, trim, lit, lightColor, anisotropy = 1 }) {
   const group = new THREE.Group();

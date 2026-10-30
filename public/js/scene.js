@@ -96,6 +96,7 @@ void main() {
  * @param {object} o
  * @param {{ title: string, subtitle: string, sign: string }} o.names what the door back's plaque and sign say
  * @param {string} o.glow its colour
+ * @param {number} [o.anisotropy] its textures' anisotropic filtering (main.js's)
  * @param {Set<string>} [o.lite] the lighter versions drawn (lite.js): 'water', 'ground'
  */
 export function buildGarden(L, { names, glow, anisotropy = 1, lite = new Set() }) {

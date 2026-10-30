@@ -270,8 +270,15 @@ You need Node.js 22 or newer.
 ```bash
 npm install     # three.js, common (the door contract, the sky, the comfort settings, the book's Back, and the walking, doorway, fade and gamepad code the hallway shares), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/ by common's tools/vendor.mjs from vendor.json
 npm start       # http://localhost:8090/
-npm test
+npm test        # node --test: the garden, the book's pages and reader, the text view, the way back, the session's words, the TV's remote and the lighter versions, the water, the page, and tsc's check of public/js/
+npm run types   # tsc's check alone
 ```
+
+`npm test` type-checks `public/js/` with TypeScript, from the modules' JSDoc (`tsconfig.json`:
+`allowJs`, `checkJs`, `noEmit`), against three.js's types and common's and the shared session's.
+Nothing is built: the page is served as it is, and the import map stays. What TypeScript's DOM
+library leaves out is in `types/globals.d.ts`. `strict` comes later, a file at a time, and `tools/`
+and `test/` after it.
 
 `public/` is the whole site: any static server can serve it once `npm install` has filled
 `public/vendor/`. `?xr=emulate` installs Meta's IWER emulator (a virtual Quest 3). For a Quest over
@@ -306,6 +313,6 @@ Chrome never tries a logon to find out.
 
 `.github/workflows/pages.yml` publishes `public/` to GitHub Pages
 (https://ariamokr.github.io/outside/, from AriaMoKr/outside) on every push to `main`, after the
-tests, through the sites' workflow in [AriaMoKr/common](https://github.com/AriaMoKr/common) (on
+tests (tsc's check among them), through the sites' workflow in [AriaMoKr/common](https://github.com/AriaMoKr/common) (on
 Node 24). In the repository's Settings → Pages, the source must be "GitHub Actions". Every URL in the
 page is relative.

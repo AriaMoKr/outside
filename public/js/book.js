@@ -240,6 +240,7 @@ export class Book {
    * @param {object} o
    * @param {THREE.Scene} o.scene
    * @param {{ x: number, y: number, z: number, yaw: number }} o.place where it lies closed (garden.js layout's book)
+   * @param {number} [o.anisotropy] its textures' anisotropic filtering (main.js's)
    * @param {(p: number[], n: number[]) => THREE.Color} o.light the light at a point
    * @param {ReturnType<import('./reader.js').readerSettings>} o.settings the reader's choices (main.js keeps them)
    */
@@ -262,15 +263,16 @@ export class Book {
      * one in view; none inside a cover): when it opens, and as soon as a page turns or the text
      * changes size. main.js puts their words where a screen reader reads them (pages.js
      * readingText), and the text view follows.
+     * @type {(pages: number[]) => void}
      */
     this.onShow = () => {};
     /** A setting or the place being read changed: main.js stores them (reader.js readerSettings). */
     this.onSettings = () => {};
     /** The toolbar's ✕. */
     this.onClose = () => {};
-    /** (pitch) on a screen, it was held in front of the eyes again: main.js looks down at it. */
+    /** (pitch) on a screen, it was held in front of the eyes again: main.js looks down at it. @type {(pitch: number) => void} */
     this.onHold = () => {};
-    /** (depth) a link was followed, `depth` deep: main.js adds an entry to the browser's history (back-history.js). */
+    /** (depth) a link was followed, `depth` deep: main.js adds an entry to the browser's history (back-history.js). @type {(depth: number) => void} */
     this.onTrail = () => {};
     /** back-history.js, when main.js has one: Back goes back through the browser's history. */
     this.history = null;
@@ -286,6 +288,8 @@ export class Book {
     this._sized = null; // the words the last change of text size kept to, and the place it showed: { at, shown }
     this._paged = null; // the page the last change to one page or two kept to: { i, shown }
     this._grabOffset = new THREE.Matrix4();
+    /** The eyes _fit projects the book's corners as, made when first needed. @type {THREE.PerspectiveCamera | null} */
+    this._fitCamera = null;
     this._m = new THREE.Matrix4();
     this._s = new THREE.Vector3();
     this._pick = { t: 0, kind: 'page', side: 0, panel: null, el: null, u: 0, v: 0, page: -1, link: null };
@@ -352,6 +356,7 @@ export class Book {
     p.add({ id: 'back', type: 'button', x: pad, y: 8, w: 132, h: 52, label: '↩ Back', size: 26, hidden: true, onClick: () => this.goBack() });
     p.add({ id: 'label', type: 'text', x: W - pad - 210, y: 16, w: 210, h: 40, text: '', size: 26, align: 'right', color: UI.muted });
     const by = 68, bh = 84;
+    /** The buttons along it: [id, label, width, what it does]. @type {[string, string, number, () => void][]} */
     const defs = [
       ['prev', '◀', 88, () => this.turn(-1)],
       ['next', '▶', 88, () => this.turn(1)],

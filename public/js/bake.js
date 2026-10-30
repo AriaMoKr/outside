@@ -16,6 +16,7 @@ import { SUN_DIR } from 'common/sky.js';
  * @typedef {{ p: number[], c: number[], i: number, r: number, wrap?: number }} Light  as the hallway's
  */
 
+/** @type {(x: number, y: number, z: number) => [number, number, number]} */
 const normalize = (x, y, z) => {
   const l = Math.hypot(x, y, z);
   return [x / l, y / l, z / l];
@@ -138,6 +139,8 @@ export function transmittance(occluders, px, py, pz, dx, dy, dz) {
  * Light (linear RGB) arriving at point p with normal n: the sky's (less where occluders hide it),
  * the ground's bounce, the sun's (as much of it as gets through) and the point lights'.
  * Writes into out.
+ * @param {number[]} p
+ * @param {number[]} n
  * @param {object} env { sun: { color }, sky, ground, lights, occluders }
  * @param {object} [o] { wrap: how far round its side a surface takes the sun (leaves: some), shadows: false skips them }
  */

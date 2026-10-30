@@ -60,6 +60,9 @@ export class Panel {
    * @param {number} o.width its size where it is put (the open book's units)
    * @param {number} o.height
    * @param {number} o.px its canvas's width, in pixels (its height in proportion)
+   * @param {string} [o.background] behind what is on it, a CSS colour
+   * @param {number} [o.radius] its corners', in canvas pixels
+   * @param {number} [o.anisotropy] its texture's anisotropic filtering
    */
   constructor({ width, height, px, background = 'rgba(25,20,16,0.93)', radius = 28, anisotropy = 4 }) {
     this.width = width;

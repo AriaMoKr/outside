@@ -51,6 +51,8 @@ export class Builder {
     this.indices = [];
     this.extra = {}; // further attributes by name: { size, values }
     this.colors = null; // filled by bake()
+    /** Its colours lit as its vertices were added (plants.js: the swaying grass and strands), or null. @type {number[] | null} */
+    this.lit = null;
   }
 
   get count() {
@@ -83,6 +85,10 @@ export class Builder {
    * Its front faces u × v; `normal` flips it to face that way instead. Texture coordinates are
    * `uv(point)` when given (world-mapped surfaces), else 0…1 along u and v. `move(point, s, t)`
    * may displace each vertex (returning the new point); `albedo` may be a function of the point.
+   * @param {number[]} o
+   * @param {number[]} u
+   * @param {number[]} v
+   * @param {{ seg?: number, normal?: number[] | null, uv?: ((p: number[]) => number[]) | null, albedo?: number[] | ((p: number[]) => number[]), move?: ((p: number[], s: number, t: number) => number[]) | null }} [options]
    */
   quad(o, u, v, { seg = 0.3, normal = null, uv = null, albedo = [1, 1, 1], move = null } = {}) {
     let n = cross(u, v);
@@ -112,7 +118,13 @@ export class Builder {
     return this;
   }
 
-  /** An axis-aligned box from min to max; `skip` names faces left out ('+x', '-y', …). */
+  /**
+   * An axis-aligned box from min to max; `skip` names faces left out ('+x', '-y', …), and `albedo`
+   * and `uv` are every face's, as quad's.
+   * @param {number[]} min
+   * @param {number[]} max
+   * @param {{ skip?: string[], seg?: number, albedo?: number[] | ((p: number[]) => number[]), uv?: ((p: number[]) => number[]) | null }} [options]
+   */
   box(min, max, { skip = [], seg = 0.6, albedo, uv = null } = {}) {
     const [x0, y0, z0] = min, [x1, y1, z1] = max;
     const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
@@ -129,7 +141,13 @@ export class Builder {
   /**
    * A box about centre c along its own three half-extent vectors a, b, h (at right angles):
    * a plank tilted along a curve, a bench's slat. `skip` lists the faces left out, by axis
-   * and sign ('+a', '-h', …). `jitter(p)` may move each corner (a rough stone).
+   * and sign ('+a', '-h', …). `jitter(p)` may move each corner (a rough stone). `albedo` may be a
+   * function of the face's outward axis (a, -a, b, …).
+   * @param {number[]} c
+   * @param {number[]} a
+   * @param {number[]} b
+   * @param {number[]} h
+   * @param {{ albedo?: number[] | ((axis: number[]) => number[]), skip?: string[], jitter?: ((p: number[]) => number[]) | null }} [options]
    */
   cuboid(c, a, b, h, { albedo = [1, 1, 1], skip = [], jitter = null } = {}) {
     const corner = (sa, sb, sh) => {
@@ -162,6 +180,11 @@ export class Builder {
   /**
    * A tapered cylinder from point p0 (radius r0) to p1 (radius r1), `sides` round, `rings`
    * along; without its end caps unless `caps`. `albedo` may be a function (point, along 0…1, angle).
+   * @param {number[]} p0
+   * @param {number[]} p1
+   * @param {number} r0
+   * @param {number} r1
+   * @param {{ sides?: number, rings?: number, albedo?: number[] | ((p: number[], along: number, angle: number) => number[]), caps?: boolean, wobble?: ((along: number, angle: number) => number) | null }} [options]
    */
   cylinder(p0, p1, r0, r1, { sides = 8, rings = 1, albedo = [1, 1, 1], caps = false, wobble = null } = {}) {
     const axis = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
@@ -191,7 +214,9 @@ export class Builder {
       }
     }
     if (caps) {
-      for (const [end, r, sign] of [[p0, r0, -1], [p1, r1, 1]]) {
+      /** @type {[number[], number, number][]} */
+      const ends = [[p0, r0, -1], [p1, r1, 1]];
+      for (const [end, r, sign] of ends) {
         const n = [w[0] * sign, w[1] * sign, w[2] * sign];
         const col = typeof albedo === 'function' ? albedo(end, sign > 0 ? 1 : 0, 0) : albedo;
         const centre = this.vertex(end, n, [0.5, 0.5], col);
@@ -214,6 +239,9 @@ export class Builder {
    * A sphere about c with half sizes r ([x, y, z]), subdivided `detail` times, each vertex moved
    * out along its direction by `lump(direction)` (a factor, 1 = none). Texture coordinates are
    * `uv(point, normal)` when given. `albedo` may be a function (point, normal).
+   * @param {number[]} c
+   * @param {number[]} r
+   * @param {{ detail?: number, lump?: ((d: number[]) => number) | null, albedo?: number[] | ((p: number[], n: number[]) => number[]), uv?: ((p: number[], n: number[]) => number[]) | null }} [options]
    */
   sphere(c, r, { detail = 1, lump = null, albedo = [1, 1, 1], uv = null } = {}) {
     const { verts, faces } = icosphere(detail);

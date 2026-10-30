@@ -17,10 +17,10 @@ export const APP_ID = 'ariamokr-layersharedsession-test';
 /**
  * The shared session for this page.
  * @param {object} o
- * @param {THREE.Scene} o.scene where the others are drawn
- * @param {THREE.Camera} o.camera the viewer's head
- * @param {THREE.WebGLRenderer} o.renderer
- * @param {() => Array<{controller: THREE.Object3D, source: XRInputSource|null}>} o.hands controls.js's hands
+ * @param {import('three').Scene} o.scene where the others are drawn
+ * @param {import('three').Camera} o.camera the viewer's head
+ * @param {import('three').WebGLRenderer} o.renderer
+ * @param {() => Array<{controller: import('three').Object3D, source: XRInputSource|null}>} o.hands controls.js's hands
  * @param {(x: number, z: number) => number} o.ground the ground's height, for the rings
  */
 export function gardenTogether({ scene, camera, renderer, hands, ground }) {

@@ -171,7 +171,14 @@ export class TextView {
    * @param {() => HTMLElement|null} [o.returnFocus] where focus goes when the view closes
    */
   constructor({ root, reader, text, putDown, back, presenting, onOpen = () => {}, onClose = () => {}, returnFocus = () => null }) {
-    Object.assign(this, { book: reader, text, putDown, goBack: back, presenting, onOpen, onClose, returnFocus });
+    this.book = reader;
+    this.text = text;
+    this.putDown = putDown;
+    this.goBack = back;
+    this.presenting = presenting;
+    this.onOpen = onOpen;
+    this.onClose = onClose;
+    this.returnFocus = returnFocus;
     const doc = root.ownerDocument;
     this.doc = doc;
     const el = doc.createElement('article');
@@ -196,6 +203,8 @@ export class TextView {
     this._selfTop = null;
     this._moved = false;
     this._quiet = false; // a jump of the 3D book to the view's place: the view stays as it is
+    /** What _rangeRect measures a word with, made when first needed. @type {Range | null} */
+    this._range = null;
     this._wire();
   }
 
@@ -454,8 +463,8 @@ export class TextView {
     slider.setAttribute('aria-valuetext', /\//.test(label) ? `Page ${label.replace(' / ', ' of ')}` : label);
     this.$('.tv-back').hidden = !B.trail.length;
     const n = partCount(this.text);
-    for (const b of this.el.querySelectorAll('.tv-prev')) b.disabled = this.part <= 0;
-    for (const b of this.el.querySelectorAll('.tv-next')) b.disabled = this.part >= n - 1;
+    for (const b of /** @type {NodeListOf<HTMLButtonElement>} */ (this.el.querySelectorAll('.tv-prev'))) b.disabled = this.part <= 0;
+    for (const b of /** @type {NodeListOf<HTMLButtonElement>} */ (this.el.querySelectorAll('.tv-next'))) b.disabled = this.part >= n - 1;
     this.$('.tv-partno').textContent = `Part ${this.part + 1} of ${n}`;
   }
 

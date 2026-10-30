@@ -48,10 +48,10 @@ const THEME_NAMES = { paper: 'Paper', sepia: 'Sepia', night: 'Night' };
 export class Overlay {
   /**
    * @param {{ url: string, label: string, title: string }} way the way back (common/door.js wayBack)
-   * @param {object} o
-   * @param {() => string} o.href the address the way back opens now (it carries the shared session)
-   * @param {() => void} o.onLeave called when its link is followed
-   * @param {boolean} o.tv the TV app's page (common's tv.js tvMode)
+   * @param {object} [o]
+   * @param {() => string} [o.href] the address the way back opens now (it carries the shared session)
+   * @param {() => void} [o.onLeave] called when its link is followed
+   * @param {boolean} [o.tv] the TV app's page (common's tv.js tvMode)
    */
   constructor(way, { href = () => way.url, onLeave = () => {}, tv = false } = {}) {
     this.root = document.getElementById('overlay');
@@ -61,21 +61,21 @@ export class Overlay {
     this.back = el('a', { class: 'way-back', href: href(), title: way.title }, way.label);
     this.back.addEventListener('click', () => onLeave());
     // What one can do in the garden, without pointing at it in 3D.
-    /** (sit) true to sit on the bench (walking there first on a screen), false to get up. */
+    /** (sit) true to sit on the bench (walking there first on a screen), false to get up. @type {(sit: boolean) => void} */
     this.onBench = () => {};
     this.onRead = () => {};
     this.onSession = () => {};
-    /** (key, value) a movement choice for VR: 'move' 'smooth' or 'teleport', 'turn' 'snap' or 'smooth'. */
+    /** (key, value) a movement choice for VR: 'move' 'smooth' or 'teleport', 'turn' 'snap' or 'smooth'. @type {(key: string, value: string) => void} */
     this.onNav = () => {};
-    /** (change) accessibility settings changed (common/access.js), such as { motion: 'reduce' } or { seated: true }. */
+    /** (change) accessibility settings changed (common/access.js), such as { motion: 'reduce' } or { seated: true }. @type {(change: Record<string, string | boolean>) => void} */
     this.onAccess = () => {};
     /** The open book's words as a page of text (text-view.js); the book back in front of the eyes; back to the start. */
     this.onTextView = () => {};
     this.onFront = () => {};
     this.onReset = () => {};
-    /** (action, value) what the open book's keys do (controls.js onBookAction): 'contents', 'font' ±1, 'pages', 'theme'. */
+    /** (action, value) what the open book's keys do (controls.js onBookAction): 'contents', 'font' ±1, 'pages', 'theme'. @type {(action: string, value?: number) => void} */
     this.onBook = () => {};
-    /** (on) "Open the book as text" (book.js settings.textView). */
+    /** (on) "Open the book as text" (book.js settings.textView). @type {(on: boolean) => void} */
     this.onTextViewPref = () => {};
     this._seated = false;
     this.bench = el('button', { class: 'chip', type: 'button' }, 'Sit on the bench');

@@ -20,7 +20,8 @@
   "scripts": {
     "postinstall": "node node_modules/common/tools/vendor.mjs",
     "start": "node tools/serve.mjs",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "types": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "common": "github:AriaMoKr/common#v0.7.1",
@@ -29,6 +30,8 @@
     "trystero": "0.26.0"
   },
   "devDependencies": {
-    "iwer": "^2.5.0"
+    "@types/three": "0.186.0",
+    "iwer": "^2.5.0",
+    "typescript": "5.9.3"
   }
 }
