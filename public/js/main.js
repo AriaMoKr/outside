@@ -295,6 +295,8 @@ function openBook() {
   // On a screen, look down at it; in VR, one's head does.
   if (!renderer.xr.isPresenting) controls.pitch = pitch;
   controls.book = book;
+  // The dot is walking's: reading, a TV's OK is the book's Enter (useMiddle), so nothing is aimed at.
+  controls.aimMiddle = false;
   overlay.setReading(true);
   // On a TV, Menu goes to the book's buttons now (the remote's first, below), not back to the
   // control last left in the card, such as Read the book.
@@ -308,6 +310,7 @@ function closeBook({ away = false } = {}) {
   if (!book.isOpen) return;
   book.close();
   controls.book = null;
+  controls.aimMiddle = tv; // a TV's dot again
   overlay.setReading(false);
   overlay.hideBookText();
   textView.close({ keepPlace: false }); // focus back to Read the book
