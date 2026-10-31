@@ -421,7 +421,7 @@ export class Book {
   /** The keys, in the contents (↑ ↓): the entry marked moves; whether the contents is open to take them. */
   moveContents(dir) {
     if (!this.contents.visible) return false;
-    const list = this.contents.get('list');
+    const list = /** @type {import('./canvas-panel.js').ListElement} */ (this.contents.get('list')); // _fillContents's
     const n = list.items.length;
     const from = Number.isInteger(list.hoverRow) ? list.hoverRow : list.items.findIndex((it) => it.active);
     list.hoverRow = clamp((from < 0 ? (dir > 0 ? -1 : n) : from) + dir, 0, n - 1);
@@ -433,7 +433,7 @@ export class Book {
   /** Enter, in the contents: goes to the entry marked; whether there was one. */
   chooseContents() {
     if (!this.contents.visible) return false;
-    const list = this.contents.get('list');
+    const list = /** @type {import('./canvas-panel.js').ListElement} */ (this.contents.get('list')); // _fillContents's
     const it = Number.isInteger(list.hoverRow) ? list.items[list.hoverRow] : null;
     if (!it) return false;
     it.onClick();
