@@ -8,6 +8,7 @@ export const BOOK_SUBTITLE = 'Prose and verse for a garden bench';
 /**
  * The pieces, in order: { title, author, source (the edition), kind: 'prose' (paragraphs) | 'verse'
  * (stanzas, a blank line between them), text }.
+ * @type {import('./pages.js').Piece[]}
  */
 export const PIECES = [
   {

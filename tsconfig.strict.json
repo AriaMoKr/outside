@@ -7,5 +7,5 @@
   "compilerOptions": {
     "strict": true
   },
-  "include": ["public/js/garden.js", "public/js/lite.js", "public/js/preview.js", "public/js/reading.js", "public/js/remote.js", "public/js/together.js", "public/js/way.js", "types/*.d.ts"]
+  "include": ["public/js/garden.js", "public/js/lite.js", "public/js/pages.js", "public/js/preview.js", "public/js/reader.js", "public/js/reading.js", "public/js/remote.js", "public/js/together.js", "public/js/way.js", "types/*.d.ts"]
 }

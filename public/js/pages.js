@@ -13,7 +13,9 @@
 export const PAGE = { width: 1024, height: 1448, top: 170, bottom: 1296, inner: 122, outer: 100 };
 export const TEXT_WIDTH = PAGE.width - PAGE.inner - PAGE.outer;
 
-/** The kinds of text, by size (px) and leading; style is the CSS font style or weight. */
+/** @typedef {{ size: number, line: number, style: string, spacing?: number }} Font a kind of text's size (px), leading (px), CSS font style or weight, and letter spacing (px) */
+
+/** The kinds of text, by size (px) and leading; style is the CSS font style or weight. @satisfies {Record<string, Font>} */
 export const TYPE = {
   body: { size: 33, line: 49, style: '' },
   title: { size: 48, line: 62, style: '600' },
@@ -29,6 +31,8 @@ export const TYPE = {
   folio: { size: 23, line: 30, style: '' },
 };
 
+/** @typedef {keyof typeof TYPE} TypeName a kind of text: one of TYPE's names, a line's `type` */
+
 const INDENT = 44; // a paragraph's first line
 const HANG = 52; // a verse line carried over
 const SMALL_PRINT = 'Outside · a garden beyond the Hallway'; // at the foot of the title page
@@ -41,8 +45,8 @@ export const FONT_STEPS = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6, 1.8];
  * times it. A font, for `measure`, is one of these: { size, line, style, spacing? }.
  */
 export function typeAt(scale = 1) {
-  const out = {};
-  for (const [k, t] of Object.entries(TYPE)) {
+  const out = /** @type {Record<TypeName, Font>} */ ({}); // every kind's, set below
+  for (const [k, t] of /** @type {[TypeName, Font][]} */ (Object.entries(TYPE))) { // TYPE's names, which entries types as strings
     out[k] = { ...t, size: t.size * scale, line: t.line * scale };
     if (t.spacing) out[k].spacing = t.spacing * scale;
   }
@@ -55,7 +59,14 @@ export function typeAt(scale = 1) {
  */
 export const SECTION = { title: 0, contents: 1, piece: 2 };
 
-/** Words of text in lines no wider than width (the first narrower by `firstIndent`; wider, when it is negative). */
+/**
+ * Words of text in lines no wider than width (the first narrower by `firstIndent`; wider, when it is negative).
+ * @param {string} text
+ * @param {number} width
+ * @param {Measure} measure
+ * @param {Font} font
+ * @param {number} [firstIndent]
+ */
 function wrap(text, width, measure, font, firstIndent = 0) {
   const words = text.split(/\s+/).filter(Boolean);
   const lines = [];
@@ -73,8 +84,29 @@ function wrap(text, width, measure, font, firstIndent = 0) {
   return lines;
 }
 
-/** How many words a line set by wrap has. */
+/** How many words a line set by wrap has. @type {(line: string) => number} */
 const wordCount = (line) => line.split(' ').length;
+
+/**
+ * What paginate takes: a book, its pieces (reading.js PIECES), and `measure(text, font)`, a text's
+ * width in a font.
+ * @typedef {{ title: string, author: string, source: string, kind: 'prose' | 'verse', text: string }} Piece
+ * @typedef {{ title: string, subtitle: string, pieces: Piece[], colophon: string[] }} BookText
+ * @typedef {(text: string, font: Font) => number} Measure
+ */
+
+/**
+ * What it sets, as it says: a place in the book (`at`), a line of text, a rule, either of them on
+ * a page (an item), a contents entry's link, a page, and a page being set (its `at` is null until
+ * its first line).
+ * @typedef {[number, number, number]} At
+ * @typedef {{ text: string, type: TypeName, x: number, y: number, align: 'left' | 'center' | 'right', justify: number, at: At, start?: boolean, carried?: boolean, spoken?: string, link?: number }} TextItem
+ * @typedef {{ rule: true, x0: number, x1: number, y: number }} RuleItem
+ * @typedef {TextItem | RuleItem} Item
+ * @typedef {{ section: number, x0: number, y0: number, x1: number, y1: number }} Link
+ * @typedef {{ items: Item[], head: string | null, folio: number | null, side: 'recto' | 'verso', kind: Piece['kind'] | null, section: number, at: At, links: Link[] }} Page
+ * @typedef {Omit<Page, 'at'> & { at: At | null }} DraftPage
+ */
 
 /**
  * The pages, in reading order: each { items, head, folio, side, kind, section, at, links }. An
@@ -90,19 +122,25 @@ const wordCount = (line) => line.split(' ').length;
  * set in capitals has `spoken` (as written), and a piece's pages have its `kind`, 'prose' or
  * 'verse'. Page 0 is a right-hand page (the title), so even pages are right-hand ('recto') and odd
  * ones left-hand ('verso').
- * @param {{ title: string, subtitle: string, pieces: object[], colophon: string[] }} book
- * @param {(text: string, font: { size: number, style: string, spacing?: number }) => number} measure
+ * @param {BookText} book
+ * @param {Measure} measure
  * @param {{ scale?: number }} [o] the text size (FONT_STEPS)
+ * @returns {Page[]}
  */
 export function paginate(book, measure, { scale = 1 } = {}) {
   const T = typeAt(scale);
+  /** @type {(v: number) => number} */
   const sp = (v) => v * scale; // a space that goes with the type's size
+  /** @type {DraftPage[]} */
   const pages = [];
+  /** @type {(section: number, head?: string | null) => DraftPage} */
   const newPage = (section, head = null) => {
+    /** @type {DraftPage} */
     const page = { items: [], head, folio: null, side: pages.length % 2 === 0 ? 'recto' : 'verso', kind: null, section, at: null, links: [] };
     pages.push(page);
     return page;
   };
+  /** @type {(page: DraftPage, s: string, type: TypeName, x: number, y: number, at: At, align?: TextItem['align'], justify?: number) => TextItem} */
   const text = (page, s, type, x, y, at, align = 'left', justify = 0) => {
     const item = { text: s, type, x, y, align, justify, at };
     page.items.push(item);
@@ -137,6 +175,7 @@ export function paginate(book, measure, { scale = 1 } = {}) {
   }
 
   // The contents, on as many pages as it takes: its page numbers go in once the pieces are set.
+  /** @type {{ page: DraftPage, index: number, y: number }[]} */
   const numbers = []; // where each entry's goes: { page, index (among the page's items), y }
   {
     let page = newPage(SECTION.contents);
@@ -144,6 +183,7 @@ export function paginate(book, measure, { scale = 1 } = {}) {
     text(page, 'Contents', 'heading', centre, y, [SECTION.contents, -1, 0], 'center');
     y += sp(40);
     book.pieces.forEach((piece, i) => {
+      /** @type {At} */
       const at = [SECTION.contents, i, 0];
       const to = SECTION.piece + i;
       const titleLines = wrap(piece.title, TEXT_WIDTH - sp(90), measure, T.entry);
@@ -171,8 +211,10 @@ export function paginate(book, measure, { scale = 1 } = {}) {
   }
 
   // The pieces.
-  const starts = [];
+  /** @type {number[]} */
+  const starts = []; // each one's first page
   let folio = 0;
+  /** @type {(y: number, h: number) => boolean} */
   const fits = (y, h) => y + h <= PAGE.bottom;
   book.pieces.forEach((piece, i) => {
     const s = SECTION.piece + i;
@@ -269,37 +311,49 @@ export function paginate(book, measure, { scale = 1 } = {}) {
   // page stay where they were).
   for (let i = numbers.length - 1; i >= 0; i--) {
     const { page, index, y } = numbers[i];
+    /** @type {TextItem} */
     const item = { text: String(pages[starts[i]].folio), type: 'entry', x: TEXT_WIDTH, y, align: 'right', justify: 0, at: [SECTION.contents, i, 0], link: SECTION.piece + i };
     page.items.splice(index, 0, item);
   }
-  return pages;
+  return /** @type {Page[]} */ (pages); // each has its first line's place now
 }
 
-/** Whether place a ([section, block, word]) is before b (< 0), the same (0) or after it (> 0). */
+/** Whether place a ([section, block, word]) is before b (< 0), the same (0) or after it (> 0). @type {(a: At, b: At) => number} */
 export const comparePlaces = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
 
-/** The page a place is on: the last one starting at or before it. */
+/**
+ * The page a place is on: the last one starting at or before it.
+ * @param {Page[]} pages
+ * @param {At} at
+ */
 export function pageAt(pages, at) {
   let i = 0;
   while (i + 1 < pages.length && comparePlaces(pages[i + 1].at, at) <= 0) i++;
   return i;
 }
 
-/** The first page of part `section` (SECTION), or -1. */
+/** The first page of part `section` (SECTION), or -1. @type {(pages: Page[], section: number) => number} */
 export const sectionStart = (pages, section) => pages.findIndex((p) => p.section === section);
 
-/** Which spread page i is on, and on which side of it (-1 left, 1 right): spreadPages' inverse. */
+/** Which spread page i is on, and on which side of it (-1 left, 1 right): spreadPages' inverse. @type {(i: number) => number} */
 export const spreadOf = (i) => Math.floor((i + 1) / 2);
+/** @type {(i: number) => number} */
 export const sideOf = (i) => (i % 2 === 1 ? -1 : 1);
 
-/** How far into the book page i is, 0 to 1 (the toolbar's slider), and the page at a fraction. */
+/** How far into the book page i is, 0 to 1 (the toolbar's slider), and the page at a fraction. @type {(pages: Page[], i: number) => number} */
 export const progressOf = (pages, i) => (pages.length > 1 ? i / (pages.length - 1) : 0);
+/** @type {(pages: Page[], v: number) => number} */
 export const pageAtProgress = (pages, v) => Math.round(Math.max(0, Math.min(1, v)) * (pages.length - 1));
 
 /** How far from an entry a press still takes it, in page pixels (a laser in VR is not exact). */
 const LINK_REACH = 12;
 
-/** The contents entry at (x, y) on a page (from its text block's left, in page pixels): the part it leads to, or null. */
+/**
+ * The contents entry at (x, y) on a page (from its text block's left, in page pixels): the part it leads to, or null.
+ * @param {Page} page
+ * @param {number} x
+ * @param {number} y
+ */
 export function linkAt(page, x, y) {
   for (const l of page.links) {
     if (x >= l.x0 - LINK_REACH && x <= l.x1 + LINK_REACH && y >= l.y0 - LINK_REACH && y <= l.y1 + LINK_REACH) return l;
@@ -307,7 +361,11 @@ export function linkAt(page, x, y) {
   return null;
 }
 
-/** Where one is, on the toolbar (as vrlbry's): the right-hand page's number of the last, or which page it is. */
+/**
+ * Where one is, on the toolbar (as vrlbry's): the right-hand page's number of the last, or which page it is.
+ * @param {Page[]} pages
+ * @param {number[]} indices the pages open
+ */
 export function folioLabel(pages, indices) {
   const last = pages.findLast((p) => p.folio !== null)?.folio ?? 0;
   const i = indices.length ? indices[indices.length - 1] : 0;
@@ -315,18 +373,30 @@ export function folioLabel(pages, indices) {
   return pages[i].section === SECTION.title ? 'Title page' : pages[i].section === SECTION.contents ? 'Contents' : 'Sources';
 }
 
-/** Which pages lie open at spread s: [left, right], either null for the inside of a cover. */
+/**
+ * Which pages lie open at spread s: [left, right], either null for the inside of a cover.
+ * @param {Page[]} pages
+ * @param {number} s
+ * @returns {[number | null, number | null]}
+ */
 export function spreadPages(pages, s) {
   const left = 2 * s - 1, right = 2 * s;
   return [left >= 0 && left < pages.length ? left : null, right < pages.length ? right : null];
 }
 
-/** How many spreads the book has (the last may have only its left page). */
+/**
+ * How many spreads the book has (the last may have only its left page).
+ * @param {Page[]} pages
+ */
 export function spreadCount(pages) {
   return Math.floor(pages.length / 2) + 1;
 }
 
-/** What page i is called, read out: 'page 4', or the title page, the contents, the sources (unnumbered). */
+/**
+ * What page i is called, read out: 'page 4', or the title page, the contents, the sources (unnumbered).
+ * @param {Page[]} pages
+ * @param {number} i
+ */
 export function pageLabel(pages, i) {
   if (pages[i].folio !== null) return `page ${pages[i].folio}`;
   if (pages[i].section === SECTION.title) return 'the title page';
@@ -334,7 +404,11 @@ export function pageLabel(pages, i) {
   return 'the sources';
 }
 
-/** The pages open, read out: 'Pages 4 and 5', 'The contents and page 1', 'Page 23', 'The contents' (two of its pages). */
+/**
+ * The pages open, read out: 'Pages 4 and 5', 'The contents and page 1', 'Page 23', 'The contents' (two of its pages).
+ * @param {Page[]} pages
+ * @param {number[]} indices
+ */
 export function spreadLabel(pages, indices) {
   const folios = indices.map((i) => pages[i].folio);
   let s;
@@ -344,7 +418,7 @@ export function spreadLabel(pages, indices) {
   return s[0].toUpperCase() + s.slice(1);
 }
 
-/** The kinds of line that are headings, and their level: under the h2 that says which pages are open (overlay.js). */
+/** The kinds of line that are headings, and their level: under the h2 that says which pages are open (overlay.js). @type {Partial<Record<TypeName, number>>} */
 const HEADINGS = { bookTitle: 3, heading: 3, title: 3 };
 
 /**
@@ -363,6 +437,7 @@ const HEADINGS = { bookTitle: 3, heading: 3, title: 3 };
  * contents: "title, author, page n"). Lines set apart are joined again with a space; a paragraph or
  * stanza that began on an earlier page is `continued` (and a verse line carried onto this one,
  * `carried`). The running head and the page number are left out: the label says where one is.
+ * @param {Page} page
  * @returns {ReadingBlock[]}
  */
 export function pageBlocks(page) {
@@ -371,18 +446,18 @@ export function pageBlocks(page) {
   /** The block the next line of the same type may join, and that type. @type {{ block: HeadingBlock | ParagraphBlock | VerseBlock, type: string } | null} */
   let open = null;
   for (const it of page.items) {
-    if (it.rule) {
+    if ('rule' in it) {
       open = null;
       continue;
     }
     const words = it.spoken ?? it.text;
-    const joins = open && open.type === it.type && !it.start;
     if (it.type === 'entry' || it.type === 'entryBy') {
       // The contents: an entry's title (on a line or two), its page number, its author.
       let list = blocks.at(-1);
       if (list?.kind !== 'list') blocks.push(list = { kind: 'list', items: [], entries: [] });
-      if (it.start || !list.entries.length) list.entries.push({ title: '', page: '', by: '' });
-      const e = list.entries.at(-1);
+      const entries = /** @type {NonNullable<ListBlock['entries']>} */ (list.entries); // a list's, until they are read into its items below
+      if (it.start || !entries.length) entries.push({ title: '', page: '', by: '' });
+      const e = entries[entries.length - 1];
       if (it.type === 'entryBy') e.by = words;
       else if (it.align === 'right') e.page = words;
       else e.title = e.title ? `${e.title} ${words}` : words;
@@ -398,9 +473,10 @@ export function pageBlocks(page) {
         blocks.push(block);
         open = { block, type: 'body' };
       }
-    } else if (joins) {
+    } else if (open && open.type === it.type && !it.start) {
       /** @type {HeadingBlock | ParagraphBlock} */ (open.block).text += ` ${words}`; // a stanza's lines join it above, so this is a heading or a paragraph
     } else {
+      /** @type {number | undefined} */
       const level = HEADINGS[it.type];
       /** @type {HeadingBlock | ParagraphBlock} */
       const block = level ? { kind: 'heading', level, text: words } : { kind: 'paragraph', text: words, continued: it.type === 'body' && !it.start };
@@ -409,7 +485,7 @@ export function pageBlocks(page) {
     }
   }
   for (const b of blocks) {
-    if (b.kind !== 'list') continue;
+    if (b.kind !== 'list' || !b.entries) continue;
     b.items = b.entries.map((e) => `${e.title}, ${e.by}, page ${e.page}`);
     delete b.entries;
   }
@@ -420,6 +496,8 @@ export function pageBlocks(page) {
  * The words of the pages open (indices, in reading order), for a screen reader: { label, blocks },
  * the label as spreadLabel says it, and a paragraph or stanza that runs from one page onto the next
  * read as one.
+ * @param {Page[]} pages
+ * @param {number[]} indices
  * @returns {{ label: string, blocks: ReadingBlock[] }}
  */
 export function readingText(pages, indices) {
@@ -440,8 +518,13 @@ export function readingText(pages, indices) {
   return { label: spreadLabel(pages, indices), blocks };
 }
 
-/** How many parts the book has (SECTION): the title page, the contents, the pieces, the sources. */
+/** How many parts the book has (SECTION): the title page, the contents, the pieces, the sources. @type {(book: BookText) => number} */
 export const sectionCount = (book) => SECTION.piece + book.pieces.length + 1;
+
+/**
+ * A block of a part of the book, for the text view (sectionBlocks), one type per kind.
+ * @typedef {{ b: number, kind: 'heading', text: string } | { b: number, kind: 'byline', author: string, source: string } | { b: number, kind: 'paragraph', text: string } | { b: number, kind: 'verse', lines: string[] } | { b: number, kind: 'entry', title: string, author: string, to: number }} SectionBlock
+ */
 
 /**
  * Part `section` of the book (SECTION) as blocks, numbered as paginate's `at` numbers them, for
@@ -450,21 +533,25 @@ export const sectionCount = (book) => SECTION.piece + book.pieces.length + 1;
  * 'verse', lines } (a stanza), { b, kind: 'entry', title, author, to } (the contents: the part it
  * leads to). The sources have a heading the page doesn't ('Sources'); the title page's small
  * print is left out.
+ * @param {BookText} book
+ * @param {number} section
+ * @returns {SectionBlock[]}
  */
 export function sectionBlocks(book, section) {
   const sources = SECTION.piece + book.pieces.length;
+  /** @type {(s: string) => string} */
   const words = (s) => s.split(/\s+/).filter(Boolean).join(' ');
   if (section === SECTION.title) return [{ b: -1, kind: 'heading', text: book.title }, { b: 0, kind: 'paragraph', text: book.subtitle }];
   if (section === SECTION.contents) {
-    return [{ b: -1, kind: 'heading', text: 'Contents' }, ...book.pieces.map((p, i) => ({ b: i, kind: 'entry', title: p.title, author: p.author, to: SECTION.piece + i }))];
+    return [{ b: -1, kind: 'heading', text: 'Contents' }, ...book.pieces.map((p, i) => /** @satisfies {SectionBlock} */ ({ b: i, kind: 'entry', title: p.title, author: p.author, to: SECTION.piece + i }))];
   }
-  if (section === sources) return [{ b: -1, kind: 'heading', text: 'Sources' }, ...book.colophon.map((note, b) => ({ b, kind: 'paragraph', text: words(note) }))];
+  if (section === sources) return [{ b: -1, kind: 'heading', text: 'Sources' }, ...book.colophon.map((note, b) => /** @satisfies {SectionBlock} */ ({ b, kind: 'paragraph', text: words(note) }))];
   const piece = book.pieces[section - SECTION.piece];
   if (!piece) return [];
   const parts = piece.text.split(/\n\s*\n/);
   return [
     { b: -1, kind: 'heading', text: piece.title },
     { b: -1, kind: 'byline', author: piece.author, source: words(piece.source) },
-    ...parts.map((part, b) => (piece.kind === 'prose' ? { b, kind: 'paragraph', text: words(part) } : { b, kind: 'verse', lines: part.split('\n').map(words) })),
+    ...parts.map((part, b) => /** @satisfies {SectionBlock} */ (piece.kind === 'prose' ? { b, kind: 'paragraph', text: words(part) } : { b, kind: 'verse', lines: part.split('\n').map(words) })),
   ];
 }

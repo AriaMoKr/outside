@@ -12,6 +12,9 @@ export const THEMES = {
 };
 export const THEME_ORDER = ['paper', 'sepia', 'night'];
 
+/** @typedef {keyof typeof THEMES} ThemeName a page's theme: one of THEMES' names */
+/** @typedef {'auto' | 'single' | 'spread'} PageView a page at a time, two, or as suits the view (singlePage) */
+
 /**
  * How much smaller or larger than at first the open book can be made, and how near and far it can
  * be held (metres from the eyes): in VR not so near that it tires the eyes; on a screen, where
@@ -26,6 +29,8 @@ export const SINGLE_BELOW_ASPECT = 0.9;
  * Whether the book shows a page at a time. `setting` (pageView): 'single', 'spread' or 'auto': one
  * page on a screen taller than wide, where a spread would be small; two in a headset and on wider
  * screens.
+ * @param {PageView} setting
+ * @param {{ xr?: boolean, aspect?: number }} [o] whether in a headset, and the view's width over its height
  */
 export function singlePage(setting, { xr = false, aspect = 1 } = {}) {
   if (setting === 'single') return true;
@@ -33,27 +38,38 @@ export function singlePage(setting, { xr = false, aspect = 1 } = {}) {
   return !xr && aspect < SINGLE_BELOW_ASPECT;
 }
 
-/** The setting that gives `single` where `auto` (what 'auto' gives here) is the default: 'auto' when they agree. */
+/** The setting that gives `single` where `auto` (what 'auto' gives here) is the default: 'auto' when they agree. @type {(single: boolean, auto: boolean) => PageView} */
 export const pageViewSetting = (single, auto) => (single === auto ? 'auto' : single ? 'single' : 'spread');
 
-/** The next text size up (step 1) or down (-1) from `scale`, or the same at either end. */
+/**
+ * The next text size up (step 1) or down (-1) from `scale`, or the same at either end.
+ * @param {number} scale
+ * @param {number} step
+ */
 export function fontStep(scale, step) {
   let i = FONT_STEPS.findIndex((s) => s >= scale - 1e-6);
   if (i < 0) i = FONT_STEPS.length - 1;
   return FONT_STEPS[Math.max(0, Math.min(FONT_STEPS.length - 1, i + step))];
 }
 
+/** @type {(v: number, lo: number, hi: number) => number} */
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+/** @type {(at: unknown) => boolean} */
 const isPlace = (at) => Array.isArray(at) && at.length === 3 && at.every(Number.isInteger);
+
+/** @typedef {{ fontScale: number, theme: ThemeName, pageView: PageView, readScale: number, readDistance: number | null, textView: boolean, at: import('./pages.js').At | null }} ReaderSettings the reader's choices (readerSettings) */
 
 /**
  * The reader's choices as stored (main.js: localStorage outside.book), each one checked and the
  * defaults for what is missing or wrong: { fontScale, theme, pageView, readScale, readDistance
  * (null: as at first), textView (open the book as text), at (where they are reading, a place in
  * the book: pages.js, or null) }.
+ * @param {any} raw what was stored, as JSON.parse gives it: anything (null when there is none)
+ * @returns {ReaderSettings}
  */
 export function readerSettings(raw) {
   const s = raw && typeof raw === 'object' ? raw : {};
+  /** @type {(v: unknown) => boolean} */
   const num = (v) => typeof v === 'number' && Number.isFinite(v);
   return {
     fontScale: num(s.fontScale) ? fontStep(s.fontScale, 0) : 1,
