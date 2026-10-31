@@ -8,12 +8,21 @@
 import { SUN_DIR } from 'common/sky.js';
 
 /**
- * @typedef {object} Occluder  something that shades
- *   { kind: 'ellipsoid', c: [x, y, z], r: [rx, ry, rz], density }: a crown, letting light through
- *     as exp(-density × the length of leaf it crosses)
- *   { kind: 'cylinder', x, z, r, y0, y1 }: a trunk, upright and opaque
- *   { kind: 'box', min, max, density? }: opaque, or like a crown with a density (a hedge)
- * @typedef {{ p: number[], c: number[], i: number, r: number, wrap?: number }} Light  as the hallway's
+ * Something that shades, by its kind: an ellipsoid centred at c with radii r (a tree's crown), an
+ * upright cylinder at x, z of radius r from y0 up to y1 (a trunk), or a box from its corner min to
+ * max (a hedge, a wall, the bench, the bridge). With a density it lets light through as
+ * exp(-density × the length of it crossed), as the crowns and the hedges do; without one it is
+ * opaque. bc and br are its bounding sphere, which prepare gives it (Prepared).
+ * @typedef {({ kind: 'ellipsoid', c: number[], r: number[] } | { kind: 'cylinder', x: number, z: number, r: number, y0: number, y1: number } | { kind: 'box', min: number[], max: number[] }) & { density?: number, bc?: number[], br?: number }} Occluder
+ * @typedef {Occluder & { bc: number[], br: number }} Prepared
+ */
+/**
+ * What the garden is lit by (scene.js's env): the sun's colour, shining from SUN_DIR; the sky's
+ * light on a surface facing up and the ground's on one facing down; the point lights, as the
+ * hallway's (at p, colour c, intensity i, half as bright at distance r, reaching wrap round a
+ * surface's side: 0.1 unless given), all linear RGB; and what shades, prepared.
+ * @typedef {{ p: number[], c: number[], i: number, r: number, wrap?: number }} Light
+ * @typedef {{ sun: { color: number[] }, sky: number[], ground: number[], lights: Light[], occluders: Prepared[] }} Env
  */
 
 /** @type {(x: number, y: number, z: number) => [number, number, number]} */
@@ -42,7 +51,11 @@ const SKY_SAMPLES = (() => {
   return out;
 })();
 
-/** Bounding spheres, so a ray far from an occluder skips it. */
+/**
+ * Bounding spheres, so a ray far from an occluder skips it.
+ * @param {Occluder[]} occluders
+ * @returns {Prepared[]}
+ */
 export function prepare(occluders) {
   for (const o of occluders) {
     if (o.kind === 'ellipsoid') {
@@ -56,10 +69,19 @@ export function prepare(occluders) {
       o.br = Math.hypot(o.max[0] - o.min[0], o.max[1] - o.min[1], o.max[2] - o.min[2]) / 2;
     }
   }
-  return occluders;
+  return /** @type {Prepared[]} */ (occluders); // each has its sphere now
 }
 
-/** How much of the ray from p along d (a unit vector) passes through o: the length inside it (0 when it misses). */
+/**
+ * How much of the ray from p along d (a unit vector) passes through o: the length inside it (0 when it misses).
+ * @param {Prepared} o
+ * @param {number} px
+ * @param {number} py
+ * @param {number} pz
+ * @param {number} dx
+ * @param {number} dy
+ * @param {number} dz
+ */
 function chord(o, px, py, pz, dx, dy, dz) {
   // Skip it when the ray passes far from its bounding sphere, or it is behind.
   const cx = o.bc[0] - px, cy = o.bc[1] - py, cz = o.bc[2] - pz;
@@ -119,7 +141,16 @@ function chord(o, px, py, pz, dx, dy, dz) {
   return t1 > t0 ? t1 - t0 : 0;
 }
 
-/** How much light gets from p along d past all the occluders (1 all of it, 0 none). */
+/**
+ * How much light gets from p along d past all the occluders (1 all of it, 0 none).
+ * @param {Prepared[]} occluders
+ * @param {number} px
+ * @param {number} py
+ * @param {number} pz
+ * @param {number} dx
+ * @param {number} dy
+ * @param {number} dz
+ */
 export function transmittance(occluders, px, py, pz, dx, dy, dz) {
   let t = 1;
   for (const o of occluders) {
@@ -141,8 +172,9 @@ export function transmittance(occluders, px, py, pz, dx, dy, dz) {
  * Writes into out.
  * @param {number[]} p
  * @param {number[]} n
- * @param {object} env { sun: { color }, sky, ground, lights, occluders }
- * @param {object} [o] { wrap: how far round its side a surface takes the sun (leaves: some), shadows: false skips them }
+ * @param {Env} env
+ * @param {{ wrap?: number, shadows?: boolean }} [o] wrap: how far round its side a surface takes the sun (leaves: some); shadows: false skips them
+ * @param {number[]} [out]
  */
 export function lightAt(p, n, env, { wrap = 0, shadows = true } = {}, out = [0, 0, 0]) {
   const lift = 0.03; // off the surface, so it doesn't shade itself
@@ -194,6 +226,13 @@ export function lightAt(p, n, env, { wrap = 0, shadows = true } = {}, out = [0, 
 /**
  * Fills builder.colors with albedo × light. `normal` lights every vertex as if it faced that way
  * (grass blades: as the ground they grow from); `wrap` as lightAt; `scale` brightens or darkens.
+ * Returns the builder: a Builder (builder.js), or anything with its positions, normals, albedo
+ * and colors.
+ * @template {{ positions: number[], normals: number[], albedo: number[], colors: Float32Array | null }} B
+ * @param {B} builder
+ * @param {Env} env
+ * @param {{ normal?: number[] | null, wrap?: number, scale?: number, shadows?: boolean }} [o]
+ * @returns {B}
  */
 export function bake(builder, env, { normal = null, wrap = 0, scale = 1, shadows = true } = {}) {
   const { positions: P, normals: N, albedo: A } = builder;
@@ -216,7 +255,11 @@ export function bake(builder, env, { normal = null, wrap = 0, scale = 1, shadows
   return builder;
 }
 
-/** How much sun reaches each of a builder's vertices (0…1), for a material that lights itself (the water). */
+/**
+ * How much sun reaches each of a builder's vertices (0…1), for a material that lights itself (the water).
+ * @param {{ positions: number[] }} builder
+ * @param {Env} env
+ */
 export function sunlit(builder, env) {
   const P = builder.positions, out = new Float32Array(P.length / 3);
   for (let i = 0, k = 0; i < P.length; i += 3, k++) {

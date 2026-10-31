@@ -278,10 +278,11 @@ npm run types   # tsc's checks alone
 `allowJs`, `checkJs`, `noEmit`), against three.js's types and common's and the shared session's.
 Nothing is built: the page is served as it is, and the import map stays. What TypeScript's DOM
 library leaves out is in `types/globals.d.ts`. `strict` comes a file at a time:
-`tsconfig.strict.json` checks only the files that pass it (so far `book.js`, `canvas-panel.js`,
-`controls.js`, `garden.js`, `lite.js`, `pages.js`, `preview.js`, `reader.js`, `reading.js`,
-`remote.js`, `text-view.js`, `textures.js`, `together.js` and `way.js`), and `npm test` runs it
-too. A file joins its `include` when a change makes it pass. `tools/` and `test/` come later.
+`tsconfig.strict.json` checks only the files that pass it (so far `bake.js`, `book.js`,
+`canvas-panel.js`, `controls.js`, `garden.js`, `lite.js`, `pages.js`, `preview.js`, `reader.js`,
+`reading.js`, `remote.js`, `text-view.js`, `textures.js`, `together.js` and `way.js`), and
+`npm test` runs it too. A file joins its `include` when a change makes it pass. `tools/` and
+`test/` come later.
 
 `public/` is the whole site: any static server can serve it once `npm install` has filled
 `public/vendor/`. `?xr=emulate` installs Meta's IWER emulator (a virtual Quest 3). For a Quest over
