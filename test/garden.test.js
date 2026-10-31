@@ -7,9 +7,15 @@ import {
   onDeck, panelButtonAt, route, shoreAt, sideOf, standable, surfaceAt, terrain, trailDistance, waterAt, waterLevel,
 } from '../public/js/garden.js';
 
+/** @typedef {import('../public/js/garden.js').RayHit} RayHit */
+
 const L = layoutGarden();
-const hit = {};
-/** A ray from o toward the point p (or along d, normalized here). */
+const hit = /** @type {RayHit} */ ({}); // castRay writes every field when a ray meets something
+/**
+ * A ray from o toward the point `to` (or along d, normalized here).
+ * @param {number[]} o
+ * @param {{ to: number[], d?: undefined } | { to?: undefined, d: number[] }} aim
+ */
 function ray(o, { to, d }) {
   const v = to ? [to[0] - o[0], to[1] - o[1], to[2] - o[2]] : d;
   const n = Math.hypot(...v);
@@ -113,10 +119,11 @@ test('trees, the bench and the arrival stand on dry land, clear of the trail and
 
 test('the house wall: the door, the plaque, the panel and the windows keep clear of each other', () => {
   const door = [-L.door.width / 2 - 0.15, L.door.width / 2 + 0.15];
+  /** @type {[string, number, number][]} */
   const spans = [
     ['plaque', PLAQUE.x - PLAQUE.width / 2, PLAQUE.x + PLAQUE.width / 2],
     ['panel', PANEL.x - PANEL.width / 2, PANEL.x + PANEL.width / 2],
-    ...HOUSE.windows.map((x) => ['window', x - HOUSE.window.width / 2 - 0.12, x + HOUSE.window.width / 2 + 0.12]),
+    ...HOUSE.windows.map((x) => /** @satisfies {[string, number, number]} */ (['window', x - HOUSE.window.width / 2 - 0.12, x + HOUSE.window.width / 2 + 0.12])),
   ];
   for (const [name, a, b] of spans) assert.ok(b < door[0] || a > door[1], `${name} overlaps the door`);
   for (let i = 0; i < spans.length; i++) {
@@ -128,7 +135,7 @@ test('the house wall: the door, the plaque, the panel and the windows keep clear
 });
 
 test('walking stays in the garden: hedges, the far wall, the house beside the door', () => {
-  const out = {};
+  const out = /** @type {{ x: number, z: number }} */ ({}); // clampWalk writes both
   clampWalk(L, 0, -5, -20, -5, out);
   assert.equal(out.x, GARDEN.x0 + GARDEN.margin);
   clampWalk(L, 5, -2, 5, 3, out);
@@ -138,7 +145,7 @@ test('walking stays in the garden: hedges, the far wall, the house beside the do
 });
 
 test('the doorway lets a head through, between its jambs, and that is going back in', () => {
-  const out = {};
+  const out = /** @type {{ x: number, z: number }} */ ({}); // clampWalk writes both
   let x = 0.1, z = -0.8;
   for (let i = 0; i < 40 && !doorCrossed(L, x, z); i++) {
     clampWalk(L, x, z, x, z + 0.05, out);
@@ -153,7 +160,7 @@ test('the doorway lets a head through, between its jambs, and that is going back
 });
 
 test('the water stops a walker, and the bridge takes them over', () => {
-  const out = {};
+  const out = /** @type {{ x: number, z: number }} */ ({}); // clampWalk writes both
   // Straight at the stream away from the bridge: stopped at its edge, still dry.
   let x = 6, z = -5;
   for (let i = 0; i < 200; i++) {
@@ -179,7 +186,7 @@ test('the water stops a walker, and the bridge takes them over', () => {
 });
 
 test('trunks and the bench stand in the way', () => {
-  const out = {};
+  const out = /** @type {{ x: number, z: number }} */ ({}); // clampWalk writes both
   for (const t of TREES) {
     clampWalk(L, t.x + 1, t.z, t.x, t.z, out);
     assert.ok(Math.hypot(out.x - t.x, out.z - t.z) >= t.trunk + 0.2, `walked into the ${t.kind}`);
@@ -188,7 +195,12 @@ test('trunks and the bench stand in the way', () => {
   assert.ok(Math.hypot(out.x - BENCH.x, out.z - BENCH.z) > 0.3, 'walked into the bench');
 });
 
-/** Whether walking the points from (x, z) goes over the bridge's deck, between its rails. */
+/**
+ * Whether walking the points from (x, z) goes over the bridge's deck, between its rails.
+ * @param {number} x
+ * @param {number} z
+ * @param {[number, number][]} pts
+ */
 function overBridge(x, z, pts) {
   let deck = false;
   for (const [px, pz] of pts) {
@@ -213,8 +225,8 @@ test('the way to the bench goes over the bridge, and back again', () => {
   assert.deepEqual(route(L, 0, -1, 4, -2), [[4, -2]]);
   // Somewhere one cannot stand (the water): as near it as one can.
   const wet = route(L, L.spawn.x, L.spawn.z, -4, -8.4);
-  assert.ok(wet.length && standable(L, ...wet.at(-1)));
-  assert.ok(Math.hypot(wet.at(-1)[0] + 4, wet.at(-1)[1] + 8.4) > 1.5);
+  assert.ok(wet.length && standable(L, .../** @type {[number, number]} */ (wet.at(-1)))); // it has one (wet.length)
+  assert.ok(Math.hypot(/** @type {[number, number]} */ (wet.at(-1))[0] + 4, /** @type {[number, number]} */ (wet.at(-1))[1] + 8.4) > 1.5); // it has one (above)
 });
 
 test('every way found keeps out of the water', () => {
@@ -242,31 +254,33 @@ test('every way found keeps out of the water', () => {
 });
 
 test('rays: the ground, the door, the panel, the bench, the book, the water, the hedge, the sky', () => {
+  // Every ray here but the one into the sky meets something, so what it meets is cast as a hit.
   const eye = [0, GARDEN.eye, -0.6];
-  assert.equal(ray(eye, { d: [0, -1, -1] }).kind, 'ground');
+  assert.equal(/** @type {RayHit} */ (ray(eye, { d: [0, -1, -1] })).kind, 'ground');
   assert.ok(hit.walkable);
-  assert.equal(ray([0, 1.6, -3], { to: [0.1, 1.2, 0] }).kind, 'door');
-  assert.equal(ray([0, 1.6, -3], { to: [3, 1.2, 0] }).kind, 'wall');
-  const p = ray([PANEL.x, PANEL.y, -2], { d: [0, 0, 1] });
+  assert.equal(/** @type {RayHit} */ (ray([0, 1.6, -3], { to: [0.1, 1.2, 0] })).kind, 'door');
+  assert.equal(/** @type {RayHit} */ (ray([0, 1.6, -3], { to: [3, 1.2, 0] })).kind, 'wall');
+  const p = /** @type {RayHit} */ (ray([PANEL.x, PANEL.y, -2], { d: [0, 0, 1] }));
   assert.equal(p.kind, 'panel');
   assert.ok(Math.abs(p.u - 0.5) < 1e-6 && Math.abs(p.v - 0.5) < 1e-6);
   // The panel reads left to right for someone facing it: their left (+x) is u = 0.
   ray([PANEL.x, PANEL.y, -2], { to: [PANEL.x + 0.2, PANEL.y + 0.2, 0] });
   assert.ok(hit.kind === 'panel' && hit.u < 0.5 && hit.v > 0.5);
-  assert.equal(ray([BENCH.x, 1.6, -10], { to: [BENCH.x, L.bench.y + 0.3, BENCH.z] }).kind, 'bench');
-  assert.equal(ray([L.book.x, 1.6, L.book.z + 0.8], { to: [L.book.x, L.book.y + BOOK.thickness, L.book.z] }).kind, 'book');
-  assert.equal(ray([-4, 1.6, -4.5], { to: [-4, 0, -8.4] }).kind, 'water');
+  assert.equal(/** @type {RayHit} */ (ray([BENCH.x, 1.6, -10], { to: [BENCH.x, L.bench.y + 0.3, BENCH.z] })).kind, 'bench');
+  assert.equal(/** @type {RayHit} */ (ray([L.book.x, 1.6, L.book.z + 0.8], { to: [L.book.x, L.book.y + BOOK.thickness, L.book.z] })).kind, 'book');
+  assert.equal(/** @type {RayHit} */ (ray([-4, 1.6, -4.5], { to: [-4, 0, -8.4] })).kind, 'water');
   assert.ok(!hit.walkable);
-  assert.equal(ray([0, 1.2, -5], { d: [-1, 0, 0] }).kind, 'hedge');
-  assert.equal(ray([0, 1.0, -12], { d: [0, -0.05, -1] }).kind, 'wall');
+  assert.equal(/** @type {RayHit} */ (ray([0, 1.2, -5], { d: [-1, 0, 0] })).kind, 'hedge');
+  assert.equal(/** @type {RayHit} */ (ray([0, 1.0, -12], { d: [0, -0.05, -1] })).kind, 'wall');
   assert.equal(ray(eye, { d: [0, 1, -1] }), null);
   // The deck is ground, and somewhere to stand.
   const mid = (BRIDGE.zA + BRIDGE.zB) / 2;
-  assert.equal(ray([BRIDGE.x, 2.2, mid + 1.5], { to: [BRIDGE.x, deckHeight(L, mid), mid] }).kind, 'ground');
+  assert.equal(/** @type {RayHit} */ (ray([BRIDGE.x, 2.2, mid + 1.5], { to: [BRIDGE.x, deckHeight(L, mid), mid] })).kind, 'ground');
   assert.ok(hit.walkable);
 });
 
 test('the panel buttons: the hallway\'s, then the accessibility settings, then the session', () => {
+  /** @param {number} x @param {number} y */
   const at = (x, y) => panelButtonAt(x / PANEL_PX.width, 1 - y / PANEL_PX.height);
   assert.equal(at(256, 100), 'vr');
   assert.equal(at(230, 190), 'move:teleport');

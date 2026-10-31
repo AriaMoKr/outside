@@ -22,6 +22,7 @@ test('?lite= asks for some of them, or all, and passes over what it does not kno
 });
 
 test('each lighter version is used where it is named', () => {
+  /** @param {string} f */
   const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
   const main = src('main.js'), scene = src('scene.js');
   for (const name of ['ratio', 'filter', 'card']) assert.match(main, new RegExp(`lite\\.has\\('${name}'\\)`), name);

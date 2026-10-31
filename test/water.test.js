@@ -7,9 +7,12 @@ import { RIPPLE, rippleData } from '../public/js/water.js';
 
 const N = RIPPLE.cells * RIPPLE.perCell;
 const data = rippleData();
+/** @param {number} x @param {number} y */
 const px = (x, y) => (((y + N) % N) * N + ((x + N) % N)) * 4;
 // As the shader reads them: the value, and the slope per cell.
+/** @param {number} x @param {number} y */
 const value = (x, y) => data[px(x, y)] / 255;
+/** @param {number} x @param {number} y @param {1 | 2} ch green, across x, or blue, across y */
 const slope = (x, y, ch) => (data[px(x, y) + ch] / 255 - 0.5) * 2 * RIPPLE.slope;
 
 test('the picture: square, opaque, the same every time, and not flat', () => {
@@ -31,7 +34,9 @@ test('its slope is its value’s, across the edges too, so it repeats without a 
   // noise bends most sharply at its cells' edges. The picture's own edges are cells' edges like the
   // rest: no worse there.
   const worst = { inside: 0, cellEdge: 0, wrap: 0 };
+  /** @param {number} a @param {number} b @param {number} s */
   const off = (a, b, s) => Math.abs((b - a) * RIPPLE.perCell - s);
+  /** @param {number} i */
   const where = (i) => (i === N - 1 ? 'wrap' : i % RIPPLE.perCell === RIPPLE.perCell - 1 ? 'cellEdge' : 'inside');
   for (let y = 0; y < N; y++) {
     for (let x = 0; x < N; x++) {
