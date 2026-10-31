@@ -7,26 +7,45 @@ import { BENCH, BRIDGE, GARDEN, HEDGE, TREES, groundAt, onDeck, shoreAt, trailWe
 import { rng } from './textures.js';
 import * as THREE from 'three';
 
+/** @typedef {import('./bake.js').RGB} RGB */
+/** @typedef {import('./builder.js').Builder} Builder */
+/** @typedef {import('./garden.js').Layout} Layout */
+/** @typedef {import('./garden.js').Tree} Tree */
+
+/** A CSS colour ('#rrggbb') as linear RGB. @type {(hex: string) => RGB} */
 const lin = (hex) => {
   const c = new THREE.Color(hex);
   return [c.r, c.g, c.b];
 };
+/** A colour k times as bright. @type {(c: RGB, k: number) => RGB} */
 const scale = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+/** The colour t of the way from a to b. @type {(a: RGB, b: RGB, t: number) => RGB} */
 const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 /** The leaf picture is grey, about this dark on average: crowns' colours are brightened to match. */
 const LEAF = 1.9;
-/** Texture coordinates for leaves: the picture laid on from whichever side a surface faces. */
+/**
+ * Texture coordinates for leaves: the picture laid on from whichever side a surface faces.
+ * @type {(p: number[], n: number[]) => number[]}
+ */
 const leafUv = (p, n) => {
   const ax = Math.abs(n[0]), ay = Math.abs(n[1]), az = Math.abs(n[2]);
   if (ay >= ax && ay >= az) return [p[0], p[2]];
   return ax > az ? [p[2], p[1]] : [p[0], p[1]];
 };
 
-/** A lumpy surface for a crown's puff: 1 ± a little, by direction. */
+/**
+ * A lumpy surface for a crown's puff: 1 ± a little, by direction.
+ * @type {(seed: number, k?: number) => (d: number[]) => number}
+ */
 const lumpy = (seed, k = 0.13) => (d) =>
   1 + k * Math.sin(3.1 * d[0] + 1.7 * d[1] + seed) * Math.sin(2.3 * d[2] - 1.1 * d[0] + seed * 1.7) + k * 0.5 * Math.sin(7 * d[1] + 5 * d[2] + seed * 2.3);
 
+/**
+ * How each kind of tree looks: its bark's colour, its leaves' (the crown's puffs take them in
+ * turn), how many puffs its crown has and how big they are (a radius from puff[0] to puff[1]).
+ * @type {Record<Tree['kind'], { bark: string, leaves: string[], puffs: number, puff: number[] }>}
+ */
 const KINDS = {
   oak: { bark: '#5b4c3e', leaves: ['#4f6f2a', '#5e7d31', '#46652a'], puffs: 13, puff: [1.0, 1.6] },
   birch: { bark: '#e6e1d6', leaves: ['#7c9a3e', '#8aa646', '#6d8c37'], puffs: 9, puff: [0.55, 0.95] },
@@ -38,6 +57,12 @@ const KINDS = {
  * The trees: trunks and limbs into `bark`, crowns into `leaves` (leaf-textured), the willow's
  * strands into `sway`, lit as they hang by `light(point, normal, out)` (their colours pushed to
  * sway.lit, vertex by vertex).
+ * @param {Layout} L
+ * @param {object} o
+ * @param {Builder} o.bark scene.js's trim
+ * @param {Builder} o.leaves
+ * @param {Builder} o.sway
+ * @param {(p: number[], n: number[], out: number[]) => void} o.light
  */
 export function buildTrees(L, { bark, leaves, sway, light }) {
   TREES.forEach((t, index) => {
@@ -47,6 +72,10 @@ export function buildTrees(L, { bark, leaves, sway, light }) {
     const top = [t.x + (r() - 0.5) * 0.3, gy + t.crownY - t.crown[1] * 0.3, t.z + (r() - 0.5) * 0.3];
     const barkColor = lin(k.bark);
     const birch = t.kind === 'birch';
+    /**
+     * The bark's colour at p, `along` its piece (0…1, foot to top) and `ang` round it.
+     * @type {(p: number[], along: number, ang: number) => RGB}
+     */
     const barkAlbedo = birch
       ? (p, along, ang) => (Math.sin(p[1] * 9.3 + Math.sin(ang * 3 + index) * 1.6) > 0.72 ? lin('#2e2a26') : along < 0.08 ? lin('#6a6458') : barkColor)
       : (p) => scale(barkColor, 0.85 + 0.3 * Math.sin(p[1] * 4.1 + p[0] * 2.3));
@@ -96,7 +125,15 @@ export function buildTrees(L, { bark, leaves, sway, light }) {
   });
 }
 
-/** The willow's hanging strands: ribbons from round its crown falling toward the water, swaying. */
+/**
+ * The willow's hanging strands: ribbons from round its crown falling toward the water, swaying.
+ * @param {Layout} L
+ * @param {Tree} t the willow
+ * @param {number[]} c its crown's middle
+ * @param {Builder} sway
+ * @param {() => number} r random numbers (textures.js's rng), the tree's
+ * @param {(p: number[], n: number[], out: number[]) => void} light as buildTrees's
+ */
 function willowStrands(L, t, c, sway, r, light) {
   sway.lit ??= [];
   const lit = [0, 0, 0];
@@ -144,7 +181,13 @@ function willowStrands(L, t, c, sway, r, light) {
   }
 }
 
-/** The hedges' runs: [x of the inner face, x of the outer, z from, z to], each side cut where the stream passes. */
+/**
+ * A run of hedge, as hedgeRuns lays them out: its side (-1 the left, at -x; 1 the right), the x of
+ * its inner face (the garden's) and of its outer, and the z it runs from and to.
+ * @typedef {{ side: number, inner: number, outer: number, z0: number, z1: number }} HedgeRun
+ */
+
+/** The hedges' runs, each side cut where the stream passes. @returns {HedgeRun[]} */
 export function hedgeRuns() {
   const runs = [];
   for (const side of [-1, 1]) {
@@ -160,17 +203,30 @@ export function hedgeRuns() {
   return runs;
 }
 
-/** The hedges: lumpy, leaf-textured boxes along the sides, into `leaves`; their runs, for the shadows. */
+/**
+ * The hedges: lumpy, leaf-textured boxes along the sides, into `leaves`.
+ * @param {Layout} L
+ * @param {Builder} leaves
+ * @returns {HedgeRun[]} their runs, hedgeRuns's
+ */
 export function buildHedges(L, leaves) {
   const runs = hedgeRuns();
   const color = lin('#3c5f26'), dark = lin('#2f4c1f');
+  /** How far a face bulges out at p (in, where it's below 0). @type {(p: number[]) => number} */
   const bulge = (p) => 0.07 * Math.sin(p[2] * 2.1 + p[1] * 1.3) + 0.05 * Math.sin(p[2] * 5.3 - p[1] * 3.7 + p[0]) + 0.03 * Math.sin(p[2] * 11 + p[1] * 9);
+  /** The hedge's top at (x, z), a little uneven. @type {(x: number, z: number) => number} */
   const topAt = (x, z) => groundAt(L, x, z) + HEDGE.height + 0.08 * Math.sin(z * 0.9 + x) + 0.05 * Math.sin(z * 2.3);
   for (const run of runs) {
     const { side, inner, outer, z0, z1 } = run;
+    /** The leaves' colour at p, lighter and darker in patches. @type {(p: number[]) => RGB} */
     const albedo = (p) => scale(mixc(dark, color, 0.5 + 0.5 * Math.sin(p[2] * 1.7 + p[1] * 2.2)), LEAF);
     // Each face is laid out from 0 to 1 up (y) and across (x), then moved: how far up and across a point is comes from it.
+    /**
+     * The height t of the way up a face at (x, z), from a little under the ground to the top.
+     * @type {(L: Layout, x: number, z: number, t: number) => number}
+     */
     const up = (L, x, z, t) => groundAt(L, x, z) - 0.2 + (topAt(x, z) - groundAt(L, x, z) + 0.2) * t;
+    /** x across the run: 0 at its inner face, 1 at its outer. @type {(x: number) => number} */
     const across = (x) => (x - inner) / (outer - inner);
     // The garden side: from below the ground to the top, pushed in and out a little.
     leaves.quad([inner, 0, z0], [0, 0, z1 - z0], [0, 1, 0], {
@@ -206,12 +262,20 @@ export function buildHedges(L, leaves) {
  * the house, round the trees, on the banks and in the pond's shallows; a few short tufts across
  * the lawn. Into `sway` (each vertex's sway: 0 at its root; its colour pushed to sway.lit).
  * `light(x, z, out)` is the ground's baked light there, which they share.
+ * @param {Layout} L
+ * @param {Builder} sway
+ * @param {(x: number, z: number, out: number[]) => void} light
  */
 export function buildGrass(L, sway, light) {
   const r = rng(211);
   const start = sway.count;
   sway.lit ??= [];
   const greens = ['#4f7a2a', '#5c8a31', '#6b9636', '#7aa03f', '#86a84a', '#a3a85b'].map(lin);
+  /**
+   * A blade rooted at (x, z), h tall and 2w wide at the root, leaning a random way, coloured base
+   * there and tip at its tip.
+   * @type {(x: number, z: number, h: number, w: number, base: RGB, tip: RGB) => void}
+   */
   const blade = (x, z, h, w, base, tip) => {
     const g = groundAt(L, x, z) - 0.02;
     const a = r() * Math.PI * 2, lean = h * (0.15 + 0.3 * r());
@@ -222,12 +286,21 @@ export function buildGrass(L, sway, light) {
     sway.tri([x - px, g, z - pz], [x + px, g, z + pz], tipP, { normal: [0, 1, 0], albedos: [base, base, tip] });
     sway.tag('sway', 1, from, (vi) => (sway.positions[vi * 3 + 1] > g + h * 0.5 ? 1 : 0) * Math.min(1, h / 0.4));
   };
+  /**
+   * A tuft of n blades about (x, z), about h tall.
+   * @type {(x: number, z: number, h: number, n?: number) => void}
+   */
   const tuft = (x, z, h, n = 3) => {
     for (let i = 0; i < n; i++) {
       const base = greens[Math.floor(r() * 3)], tip = greens[2 + Math.floor(r() * 4)];
       blade(x + (r() - 0.5) * 0.08, z + (r() - 0.5) * 0.08, h * (0.6 + 0.5 * r()), 0.012 + 0.01 * r(), scale(base, 0.75), tip);
     }
   };
+  /**
+   * A flower on a stem h tall at (x, z): `petals` petals `size` long, of `color` (a CSS colour),
+   * round a yellow eye.
+   * @type {(x: number, z: number, h: number, color: string, size?: number, petals?: number) => void}
+   */
   const flower = (x, z, h, color, size = 0.03, petals = 5) => {
     const g = groundAt(L, x, z) + h;
     const stem = lin('#4f7a2a');
@@ -241,6 +314,10 @@ export function buildGrass(L, sway, light) {
     }
     sway.tag('sway', 1, from, 1);
   };
+  /**
+   * A foxglove h tall at (x, z): ten pink bells up the top half of its stem.
+   * @type {(x: number, z: number, h: number) => void}
+   */
   const foxglove = (x, z, h) => {
     const g = groundAt(L, x, z);
     const stem = lin('#4a7028'), bell = lin(r() < 0.5 ? '#c86aa8' : '#d98bc0');
@@ -252,6 +329,10 @@ export function buildGrass(L, sway, light) {
       sway.tag('sway', 1, from, (y - g) / h);
     }
   };
+  /**
+   * A reed h tall at (x, z), about a third of them with a bulrush's head.
+   * @type {(x: number, z: number, h: number) => void}
+   */
   const reed = (x, z, h) => {
     const base = lin('#5f7d3a'), tip = lin('#a9b26a');
     blade(x, z, h, 0.012, base, tip);
@@ -263,7 +344,13 @@ export function buildGrass(L, sway, light) {
       sway.tag('sway', 1, from, 0.9);
     }
   };
+  /** Whether (x, z) is in the garden or just past it. @type {(x: number, z: number) => boolean} */
   const garden = (x, z) => x > GARDEN.x0 - 0.3 && x < GARDEN.x1 + 0.3 && z < 0.2 && z > GARDEN.z1 - 0.3;
+  /**
+   * Whether something may grow at (x, z): off the trail and the deck, not by the bench or the
+   * door, and out of the water.
+   * @type {(x: number, z: number) => boolean}
+   */
   const clear = (x, z) => trailWeight(x, z) < 0.35 && !onDeck(x, z) && !nearBench(x, z) && !nearDoor(x, z) && shoreAt(L, x, z) > 0;
 
   // Along the hedges and the far wall: long grass, daisies, buttercups; foxgloves under the left-hand hedge.
@@ -333,9 +420,11 @@ export function buildGrass(L, sway, light) {
   }
 }
 
+/** Whether (x, z) is by the bench. @param {number} x @param {number} z */
 function nearBench(x, z) {
   return Math.hypot(x - BENCH.x, z - BENCH.z) < 1.15;
 }
+/** Whether (x, z) is by the door. @param {number} x @param {number} z */
 function nearDoor(x, z) {
   return Math.hypot(x, z) < 1.3;
 }

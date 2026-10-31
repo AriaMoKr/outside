@@ -104,9 +104,11 @@ export const TRAIL = [
 ];
 export const TRAIL_WIDTH = 1.0;
 
+/** @typedef {{ kind: 'oak' | 'birch' | 'willow' | 'blossom', x: number, z: number, trunk: number, height: number, crownY: number, crown: number[] }} Tree one of the trees, below: plants.js draws each kind (its KINDS) */
 /**
  * The trees: trunk radius, height, the crown's middle and half sizes (an ellipsoid), and kind.
  * An oak stands behind the bench with its crown over it; the low sun comes in under it.
+ * @type {Tree[]}
  */
 export const TREES = [
   { kind: 'oak', x: -4.5, z: -14.4, trunk: 0.26, height: 7.8, crownY: 5.1, crown: [3.1, 2.6, 2.9] },

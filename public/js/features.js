@@ -10,11 +10,7 @@ import { rng } from './textures.js';
 /** @typedef {import('./bake.js').Occluder} Occluder */
 /** @typedef {import('./builder.js').Builder} Builder */
 /** @typedef {import('./garden.js').Layout} Layout */
-/**
- * A run of hedge, as plants.js's hedgeRuns lays them out: its side (-1 the left, at -x; 1 the
- * right), the x of its inner face (the garden's) and of its outer, and the z it runs from and to.
- * @typedef {{ side: number, inner: number, outer: number, z0: number, z1: number }} HedgeRun
- */
+/** @typedef {import('./plants.js').HedgeRun} HedgeRun */
 
 /** A CSS colour ('#rrggbb') as linear RGB. @type {(hex: string) => RGB} */
 const lin = (hex) => {
