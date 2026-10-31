@@ -277,12 +277,9 @@ npm run types   # tsc's checks alone
 `npm test` type-checks `public/js/` with TypeScript, from the modules' JSDoc (`tsconfig.json`:
 `allowJs`, `checkJs`, `noEmit`), against three.js's types and common's and the shared session's.
 Nothing is built: the page is served as it is, and the import map stays. What TypeScript's DOM
-library leaves out is in `types/globals.d.ts`. `strict` comes a file at a time:
-`tsconfig.strict.json` checks only the files that pass it (so far `bake.js`, `book.js`,
-`builder.js`, `canvas-panel.js`, `controls.js`, `features.js`, `garden.js`, `house.js`, `lite.js`,
-`overlay.js`, `pages.js`, `panel.js`, `plants.js`, `preview.js`, `reader.js`, `reading.js`,
-`remote.js`, `scene.js`, `text-view.js`, `textures.js`, `together.js`, `water.js` and `way.js`),
-and `npm test` runs it too. A file joins its `include` when a change makes it pass. `tools/` and
+library leaves out is in `types/globals.d.ts`. `strict` came a file at a time:
+`tsconfig.strict.json` checks the files that pass it, by now every one in `public/js/` (named one
+by one: a new file joins its `include` once it passes), and `npm test` runs it too. `tools/` and
 `test/`, which run in Node, have `tsconfig.node.json`: strict from the start, with Node's types
 (`@types/node`) as well, a file at a time as they pass (so far `test/remote.test.js`).
 

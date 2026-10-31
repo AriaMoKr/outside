@@ -31,6 +31,9 @@ import { Remote, tvMode } from 'common/tv.js';
 import { backStep } from './remote.js';
 import { liteParts } from './lite.js';
 
+/** @typedef {import('common/access.js').Access} Access */
+/** @typedef {import('layersharedsession/together.js').Together} Together */
+
 const params = new URLSearchParams(location.search);
 // The TV app's page (HallwayApp's WebView; ?tv=emulate, as if, in any browser): larger text, focus
 // rings seen across a room, no Enter VR or Fullscreen, the remote's keys (below).
@@ -56,7 +59,7 @@ if (params.get('xr') === 'emulate') {
     xrDevice.installRuntime({ forceInstall: true });
     console.info('outside: IWER WebXR emulation installed (Meta Quest 3)');
   } catch (err) {
-    console.warn(`outside: no WebXR emulation: ${err.message}`);
+    console.warn(`outside: no WebXR emulation: ${/** @type {Error} */ (err).message}`); // import()'s, or IWER's
   }
 }
 
@@ -94,13 +97,21 @@ const names = way.hallway
   ? { title: 'Hallway', subtitle: 'Doors to other places', sign: 'Hallway' }
   : { title: shortName, subtitle: 'The way you came', sign: shortName };
 
+/** @type {Together | null} */
 let together = null; // the shared session, made once the scene is (below)
+/**
+ * Typed here (as controls and book are) for the handlers set on it below: in a JS file, tsc reads
+ * one set at the top level on a variable typed by its value alone as a new property of it, its
+ * parameters untyped.
+ * @type {Overlay}
+ */
 const overlay = new Overlay(way, {
   href: () => leaveUrl(way, together?.room ?? null),
   onLeave: () => together?.pause(),
   tv,
 });
 
+/** @type {THREE.WebGLRenderer} */
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -115,7 +126,7 @@ renderer.xr.setReferenceSpaceType('local-floor');
 // The view, to a screen reader: a picture of the garden (what can be done in it is in the overlay).
 renderer.domElement.setAttribute('role', 'img');
 renderer.domElement.setAttribute('aria-label', 'A small garden: a lawn, a stream and a pond, a foot bridge, and a bench');
-document.getElementById('app').append(renderer.domElement);
+/** @type {HTMLElement} */ (document.getElementById('app')).append(renderer.domElement); // index.html's
 const anisotropy = Math.min(lite.has('filter') ? LITE_ANISOTROPY : 8, renderer.capabilities.getMaxAnisotropy());
 setAnisotropy(anisotropy);
 
@@ -144,6 +155,7 @@ scene.add(garden.group);
 const views = hallwayViews(way, OUTSIDE_ID);
 if (views) garden.house.loadView([views, { views: new URL('views/views.json', location.href).href, id: views.id }]);
 
+/** Typed for the handlers set on it below, as overlay is. @type {Controls} */
 const controls = new Controls({ renderer, camera, rig, scene, dom: renderer.domElement, layout: L });
 if (tv) {
   controls.aimMiddle = true; // the dot in the middle, which OK uses (below)
@@ -157,7 +169,10 @@ controls.setNav(nav);
 let access = loadAccess();
 const motion = motionQuery();
 let reduce = reduceMotion(access, motion);
-/** With less motion, a fade of a few tenths of a second is a blink. */
+/**
+ * With less motion, a fade of a few tenths of a second is a blink.
+ * @param {number} seconds
+ */
 const blink = (seconds) => (reduce ? 0.08 : seconds);
 const fade = new Fade(camera, 1);
 const vignette = new Vignette(camera, access.vignette);
@@ -171,6 +186,7 @@ function loadBook() {
     return readerSettings(null); // no storage (a private window, blocked site data): they last this visit
   }
 }
+/** Typed for the handlers set on it below, as overlay is. @type {Book} */
 const book = new Book({ scene, place: L.book, anisotropy, light: garden.lightColor, settings: loadBook() });
 book.onSettings = () => {
   try {
@@ -197,11 +213,11 @@ function go() {
   if (leaving) return;
   leaving = true;
   closeBook();
-  const url = leaveUrl(way, together.room);
+  const url = leaveUrl(way, /** @type {Together} */ (together).room); // made by now (below)
   // Leave the shared session now, so the others see the visitor go at once (the link carries its
   // room on): the fade, and then until it is left (half a second at most), give the leaving message
   // time to go out.
-  const left = Promise.race([together.pause(), new Promise((r) => setTimeout(r, 500))]);
+  const left = Promise.race([/** @type {Together} */ (together).pause(), new Promise((r) => setTimeout(r, 500))]); // made by now
   fade.to(1, blink(renderer.xr.isPresenting ? 0.3 : 0.4), () => left.then(() => location.assign(url)));
   // Still here a while later (the navigation was stopped or failed): come back out.
   clearTimeout(leaveTimer);
@@ -214,7 +230,7 @@ function arrive() {
   clearTimeout(leaveTimer);
   const s = doorSpawn(L);
   controls.setPose(s.x, s.z, s.yaw);
-  together.resume();
+  /** @type {Together} */ (together).resume(); // made by now (below)
   fade.to(0, blink(0.6));
 }
 
@@ -224,7 +240,7 @@ window.addEventListener('pageshow', (e) => {
   arrive();
 });
 // Leaving the page another way (a link, the address bar, closing it): leave the session too.
-window.addEventListener('pagehide', () => together.pause());
+window.addEventListener('pagehide', () => /** @type {Together} */ (together).pause()); // made by now (below)
 
 // On a screen, choosing the door walks up to it and through; with less motion, straight through.
 controls.onDoor = (how) => {
@@ -327,16 +343,17 @@ function back() {
 controls.onPage = (side) => (textView.isOpen ? textView.turn(side) : book.turn(side));
 controls.onCloseBook = closeBook;
 controls.onBookPress = (hit) => book.press(hit);
+// 'contents-move', 'font', 'distance' and 'scale' come with a value (controls.js, overlay.js).
 controls.onBookAction = (action, value) => {
   if (textView.isOpen && (action === 'contents-move' || action === 'enter' || action === 'escape' || action === 'textView')) {
-    if (action === 'contents-move') textView.scrollStep(value);
+    if (action === 'contents-move') textView.scrollStep(/** @type {number} */ (value));
     else if (action !== 'enter') textView.close();
     return;
   }
-  if (action === 'font') book.changeFont(value);
+  if (action === 'font') book.changeFont(/** @type {number} */ (value));
   else if (action === 'theme') book.cycleTheme();
   else if (action === 'contents') book.toggleContents();
-  else if (action === 'contents-move') book.moveContents(value);
+  else if (action === 'contents-move') book.moveContents(/** @type {number} */ (value));
   else if (action === 'enter') {
     // A TV's OK: the contents, then the entry marked in it (↑ ↓).
     if (!book.chooseContents() && tv) book.toggleContents(true);
@@ -348,8 +365,8 @@ controls.onBookAction = (action, value) => {
   else if (action === 'escape') {
     if (book.contents.visible) book.toggleContents(false);
     else closeBook();
-  } else if (action === 'distance') book.adjustDistance(value);
-  else if (action === 'scale') book.adjustScale(value);
+  } else if (action === 'distance') book.adjustDistance(/** @type {number} */ (value));
+  else if (action === 'scale') book.adjustScale(/** @type {number} */ (value));
 };
 controls.onGrab = (hand, on) => (on ? book.grab(hand.controller) : book.release(hand.controller));
 book.onClose = closeBook;
@@ -366,7 +383,7 @@ book.onShow = () => {
 };
 // The text view (T, or the overlay's Text view): the book's words as a page of text, on a screen.
 const textView = new TextView({
-  root: document.getElementById('view-overlay'),
+  root: /** @type {HTMLElement} */ (document.getElementById('view-overlay')), // index.html's
   reader: book,
   text: { title: BOOK_TITLE, subtitle: BOOK_SUBTITLE, pieces: PIECES, colophon: COLOPHON },
   putDown: () => closeBook(),
@@ -377,7 +394,7 @@ const textView = new TextView({
     overlay.setTextView(true);
     // On a TV, the remote's arrows read it (controls.onBookAction) and Menu goes to its toolbar:
     // the focus back on the view once the view has opened (it takes it, to its title).
-    if (remote) queueMicrotask(() => remote.walk());
+    if (remote) queueMicrotask(() => /** @type {Remote} */ (remote).walk()); // just checked: it is set once, at load
   },
   onClose: showBookText,
   returnFocus: () => {
@@ -423,6 +440,7 @@ overlay.setHint(tv ? 'tv' : matchMedia('(pointer: coarse)').matches ? 'touch' : 
 // beside one; reading, it is the book's Enter, as the arrows are its pages and contents
 // (controls.js). Menu moves the focus into the card (Sit, Read, the book's controls, Settings),
 // and Back goes one step back (stepBack). The app asks window.hallwayTV what Back and Menu do.
+/** @type {Remote | null} */
 let remote = null;
 if (tv) {
   renderer.domElement.setAttribute('aria-describedby', overlay.hint.id);
@@ -497,7 +515,7 @@ const SESSION_INIT = { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-
 let entering = false;
 async function enterVR() {
   if (renderer.xr.isPresenting) {
-    await renderer.xr.getSession().end();
+    await /** @type {XRSession} */ (renderer.xr.getSession()).end(); // presenting: there is one
     return;
   }
   if (entering || !navigator.xr) return;
@@ -507,7 +525,7 @@ async function enterVR() {
     await renderer.xr.setSession(session);
   } catch (err) {
     console.error(err);
-    overlay.toast(`Could not start VR: ${err.message}`, 6);
+    overlay.toast(`Could not start VR: ${/** @type {Error} */ (err).message}`, 6); // requestSession's DOMException, or an Error
   } finally {
     entering = false;
   }
@@ -562,17 +580,21 @@ function showPanel() {
 showPanel();
 /** Starts a shared session, or leaves the one this is in. */
 function toggleSession() {
-  if (together.room) {
-    together.stop();
+  if (/** @type {Together} */ (together).room) { // made by now (below)
+    /** @type {Together} */ (together).stop();
     overlay.toast('You left the shared session');
   } else {
-    together.start();
+    /** @type {Together} */ (together).start();
     overlay.toast(tv ? 'Shared session started: the card shows the link that brings others out here' : 'Shared session started: Copy invite link to bring others out here', 5);
   }
 }
-/** A VR movement choice ('move' or 'turn'), kept for here and the hallway (common/nav.js). */
+/**
+ * A VR movement choice ('move' or 'turn'), kept for here and the hallway (common/nav.js).
+ * @param {string} key
+ * @param {string} value
+ */
 function choose(key, value) {
-  nav[key] = value;
+  /** @type {Record<string, string>} */ (nav)[key] = value; // a field of it and its value, as the panel and the overlay name them
   controls.setNav(nav);
   saveNav(nav);
   showPanel();
@@ -587,7 +609,7 @@ controls.onPanel = (id) => {
     return;
   }
   const [key, value] = id.split(':');
-  if (key === 'motion') setAccess({ motion: value });
+  if (key === 'motion') setAccess({ motion: /** @type {Access['motion']} */ (value) }); // one of the panel's Motion choices
   else if (key === 'vignette' || key === 'seated') setAccess({ [key]: value === 'on' });
   else choose(key, value);
 };
@@ -641,13 +663,17 @@ if (invitedRoom) together.start(invitedRoom);
  */
 function applyAccess() {
   reduce = reduceMotion(access, motion);
-  controls.reduceMotion = book.reduceMotion = together.reduceMotion = reduce;
+  controls.reduceMotion = book.reduceMotion = /** @type {Together} */ (together).reduceMotion = reduce; // made by now (above)
   document.documentElement.classList.toggle('reduce-motion', reduce);
   vignette.enabled = access.vignette;
   controls.setEyeLift(eyeLift(access));
   showPanel();
 }
-/** A setting changed, on the panel or in the overlay: applied, and kept for every site on the origin. */
+/**
+ * A setting changed, on the panel or in the overlay: applied, and kept for every site on the
+ * origin.
+ * @param {Partial<Access>} change
+ */
 function setAccess(change) {
   access = { ...access, ...change };
   saveAccess(access); // false when storage is blocked: they then last this visit
@@ -672,6 +698,7 @@ const head = new THREE.Vector3();
 let last = performance.now();
 let time = 0; // what moves on its own (the water, the grass, the doorway's veil) goes by this
 
+/** @param {number} dt seconds since the frame before */
 function step(dt) {
   if (!reduce) time += dt;
   controls.update(dt);
@@ -679,7 +706,7 @@ function step(dt) {
   camera.getWorldPosition(head);
   garden.update(time, dt, head, controls.hoverDoor);
   book.update(dt);
-  together.update(performance.now());
+  /** @type {Together} */ (together).update(performance.now()); // made by now (above)
   garden.panel.setHover(controls.hoverPanel);
   // The dot: a gamepad's, and a TV remote's while walking (reading, its OK is the book's).
   overlay.setAim((controls.padActive || (remote !== null && !remote.inCard && !book.isOpen)) && !renderer.xr.isPresenting, !!controls.hover);
