@@ -509,10 +509,11 @@ export class Book {
     const key = i ?? -1;
     if (!this._cache.has(key)) {
       this._cache.set(key, tex(paintPage(i === null ? null : this.pages[i], THEMES[this.settings.theme], this._type), this.anisotropy));
-      // Keep a few: the spreads either side of this one.
+      // Keep a few: this one's spread, and the spreads either side of the one open (a turn to a far
+      // spread paints its pages before it is the one open).
       if (this._cache.size > 10) {
         for (const [k, t] of this._cache) {
-          if (k === -1 || Math.abs(k - 2 * this.spread) <= 4) continue;
+          if (k === -1 || spreadOf(k) === spreadOf(key) || Math.abs(k - 2 * this.spread) <= 4) continue;
           t.dispose();
           this._cache.delete(k);
           if (this._cache.size <= 8) break;
