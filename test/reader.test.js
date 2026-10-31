@@ -6,8 +6,6 @@ import { readFileSync } from 'node:fs';
 import { FONT_STEPS } from '../public/js/pages.js';
 import { READ, THEMES, THEME_ORDER, fontStep, pageViewSetting, readerSettings, singlePage } from '../public/js/reader.js';
 
-/** @typedef {import('../public/js/reader.js').ThemeName} ThemeName */
-
 test('the stored settings: defaults for what is missing or wrong, the rest kept', () => {
   const defaults = { fontScale: 1, theme: 'paper', pageView: 'auto', readScale: 1, readDistance: null, textView: false, at: null };
   for (const raw of [null, undefined, 'x', 3, {}, []]) assert.deepEqual(readerSettings(raw), defaults);
@@ -48,7 +46,7 @@ test('the themes are vrlbry\'s, and the text view (style.css) has the same colou
     const rule = name === 'paper' ? /** @type {RegExpMatchArray} */ (css.match(/\.tv-view \{([^}]*)\}/))[1] : /** @type {RegExpMatchArray} */ (css.match(new RegExp(`\\.tv-view\\[data-theme="${name}"\\] \\{([^}]*)\\}`)))[1]; // style.css has a rule for each
     /** @type {(k: string) => string} */
     const v = (k) => /** @type {RegExpMatchArray} */ (rule.match(new RegExp(`--tv-${k}: (#[0-9a-f]{6})`)))[1]; // and each colour in it
-    const t = THEMES[/** @type {ThemeName} */ (name)]; // THEME_ORDER is THEMES' names (above)
+    const t = THEMES[name];
     assert.deepEqual([v('paper'), v('ink'), v('link'), v('rule')], [t.paper, t.ink, t.link, t.rule], name);
   }
 });

@@ -10,7 +10,6 @@ import {
 import { BOOK_SUBTITLE, BOOK_TITLE, COLOPHON, PIECES } from '../public/js/reading.js';
 
 /** @typedef {import('../public/js/pages.js').At} At */
-/** @typedef {import('../public/js/pages.js').Item} Item */
 /** @typedef {import('../public/js/pages.js').Measure} Measure */
 /** @typedef {import('../public/js/pages.js').ParagraphBlock} ParagraphBlock */
 /** @typedef {import('../public/js/pages.js').ReadingBlock} ReadingBlock */
@@ -18,13 +17,10 @@ import { BOOK_SUBTITLE, BOOK_TITLE, COLOPHON, PIECES } from '../public/js/readin
 /** @typedef {import('../public/js/pages.js').TextItem} TextItem */
 /** @typedef {import('../public/js/pages.js').VerseBlock} VerseBlock */
 /**
- * One of a union's members, as the tests read it: any member's field off any of them, undefined
- * where it has none (a rule's text, a heading's lines), as pages.js makes them.
  * @template T
- * @template [All=T]
- * @typedef {T extends unknown ? T & { [K in Exclude<All extends unknown ? keyof All : never, keyof T>]?: undefined } : never} OneOf
+ * @typedef {import('./helpers/one-of.js').OneOf<T>} OneOf
  */
-/** @typedef {Omit<import('../public/js/pages.js').Page, 'items'> & { items: OneOf<Item>[] }} Page pages.js's, its items read either way (OneOf) */
+/** @typedef {import('./helpers/one-of.js').Page} Page */
 
 // A stand-in for the canvas's measureText: every character half its font's size wide.
 /** @type {Measure} */

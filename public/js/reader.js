@@ -10,6 +10,7 @@ export const THEMES = {
   sepia: { paper: '#ecdcbc', ink: '#3b2a17', light: '#8c714b', rule: '#a68a5f', link: '#2c4c7c', vignette: 'rgba(110,70,20,0.22)' },
   night: { paper: '#24221f', ink: '#d9d0c0', light: '#8d8473', rule: '#5f574b', link: '#93b4dc', vignette: 'rgba(0,0,0,0.35)' },
 };
+/** The themes in the order N and Theme go through them. @type {ThemeName[]} */
 export const THEME_ORDER = ['paper', 'sepia', 'night'];
 
 /** @typedef {keyof typeof THEMES} ThemeName a page's theme: one of THEMES' names */

@@ -9,10 +9,20 @@ import { join } from 'node:path';
 import { PUBLIC, serve } from './serve.mjs';
 import { launchChrome, sleep } from 'common/tools/chrome.mjs';
 
-/** @type {(name: string, fallback: string) => string} */
+/**
+ * What follows `name` on the command line, or `fallback` without it. `name` last, or followed by
+ * another flag, stops the tool with a message rather than going on with nothing.
+ * @type {(name: string, fallback: string) => string}
+ */
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(name);
-  return i > 0 ? process.argv[i + 1] : fallback;
+  if (i < 1) return fallback;
+  const value = process.argv.at(i + 1);
+  if (value === undefined || value.startsWith('--')) {
+    console.error(`${name} needs a value after it.`);
+    process.exit(1);
+  }
+  return value;
 };
 const out = arg('--out', join(PUBLIC, 'hallway-preview.jpg'));
 

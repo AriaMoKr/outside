@@ -20,10 +20,20 @@ import { HALLWAY_DOOR } from '../public/js/way.js';
  * @typedef {{ id: string, jpeg: string, params: Omit<import('common/door.js').ViewParams, 'image'> }} DoorView
  */
 
-/** @type {(name: string, fallback: string) => string} */
+/**
+ * What follows `name` on the command line, or `fallback` without it. `name` last, or followed by
+ * another flag, stops the tool with a message rather than going on with nothing.
+ * @type {(name: string, fallback: string) => string}
+ */
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(name);
-  return i > 0 ? process.argv[i + 1] : fallback;
+  if (i < 1) return fallback;
+  const value = process.argv.at(i + 1);
+  if (value === undefined || value.startsWith('--')) {
+    console.error(`${name} needs a value after it.`);
+    process.exit(1);
+  }
+  return value;
 };
 const hallway = resolve(arg('--hallway', join(PUBLIC, '..', '..', 'hallway')));
 const source = join(hallway, 'public');

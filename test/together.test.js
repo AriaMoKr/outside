@@ -23,7 +23,7 @@ test('the notices, in the garden\'s words', () => {
 test('the session for this page: the sites\' app id, out of a session until one starts', () => {
   assert.equal(APP_ID, 'ariamokr-layersharedsession-test');
   const scene = new THREE.Scene();
-  const together = gardenTogether({ scene, camera: new THREE.PerspectiveCamera(), renderer: /** @type {THREE.WebGLRenderer} */ (/** @type {unknown} */ (null)), hands: () => [], ground: () => 0.2 }); // none in Node, and the layer takes null
+  const together = gardenTogether({ scene, camera: new THREE.PerspectiveCamera(), renderer: null, hands: () => [], ground: () => 0.2 }); // no renderer in Node
   assert.equal(together.active, false);
   assert.equal(together.inviteLink, '');
   assert.equal(together.wave(), false, 'no one to wave to');

@@ -19,7 +19,7 @@ export const APP_ID = 'ariamokr-layersharedsession-test';
  * @param {object} o
  * @param {import('three').Scene} o.scene where the others are drawn
  * @param {import('three').Camera} o.camera the viewer's head
- * @param {import('three').WebGLRenderer} o.renderer
+ * @param {import('three').WebGLRenderer | null} o.renderer whether in VR (null in Node)
  * @param {() => Array<{controller: import('three').Object3D, source: XRInputSource|null}>} o.hands controls.js's hands
  * @param {(x: number, z: number) => number} o.ground the ground's height, for the rings
  */

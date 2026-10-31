@@ -12,6 +12,7 @@ import { BOOK_SUBTITLE, BOOK_TITLE, COLOPHON, PIECES } from '../public/js/readin
 
 /** @typedef {import('../public/js/pages.js').Measure} Measure */
 /** @typedef {import('../public/js/pages.js').TextItem} TextItem */
+/** @typedef {import('./helpers/one-of.js').Page} Page */
 
 const book = { title: BOOK_TITLE, subtitle: BOOK_SUBTITLE, pieces: PIECES, colophon: COLOPHON };
 /** @type {Measure} */
@@ -83,9 +84,11 @@ test('the sources: a heading and the notes', () => {
 test('every page\'s first words are where the view finds the page\'s place, at every size', () => {
   const parts = Array.from({ length: partCount(book) }, (_, p) => render(p).box);
   for (const scale of FONT_STEPS) {
-    for (const page of paginate(book, measure, { scale })) {
+    /** @type {Page[]} */
+    const pages = paginate(book, measure, { scale });
+    for (const page of pages) {
       const [s, b, w] = page.at;
-      const first = /** @type {TextItem} */ (page.items.find((it) => !/** @type {{ rule?: true }} */ (it).rule)); // the first line: only a rule has rule, and every page has a line
+      const first = /** @type {TextItem} */ (page.items.find((it) => !it.rule)); // the first line: every page has one
       if (s === SECTION.title && b !== 0) continue; // the title page's heading is the view's own h1; its small print is left out
       const el = parts[partOf(s)].findAll((e) => e.getAttribute('data-s') === String(s) && e.getAttribute('data-b') === String(b))[0];
       assert.ok(el, `at ${scale}: no block for ${page.at}`);

@@ -1,6 +1,7 @@
 // A minimal document for building DOM in Node (the text view's renderPart): elements with
 // attributes, children, text and click listeners, and markup() to read what was built.
-// vrlbry's test/helpers/fake-dom.js; the types are this copy's (vrlbry's has none).
+// vrlbry's test/helpers/fake-dom.js, less its parentNode (set, never read); the types are this
+// copy's (vrlbry's has none).
 
 /**
  * A click as its listeners get it, and as click() gives it back: its default can be prevented.
@@ -11,15 +12,12 @@ class Node {
   constructor() {
     /** @type {(Text | Element)[]} */
     this.childNodes = [];
-    /** @type {Node | null} */
-    this.parentNode = null;
   }
 
   /** @param {...(Text | Element | string)} nodes */
   append(...nodes) {
     for (const n of nodes) {
       const node = typeof n === 'string' ? new Text(n) : n;
-      node.parentNode = this;
       this.childNodes.push(node);
     }
   }
