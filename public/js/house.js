@@ -166,7 +166,9 @@ export function buildHouse(L, { names, glow, trim, lit, lightColor, anisotropy =
         fallback.dispose();
         return source;
       } catch (err) {
-        console.info(`outside: no view through the door from ${source.views} (${err.message})`);
+        // A picture that won't load rejects with its image's error event, which has no message.
+        const why = err instanceof Error ? err.message : 'its picture would not load';
+        console.info(`outside: no view through the door from ${source.views} (${why})`);
       }
     }
     return null;
