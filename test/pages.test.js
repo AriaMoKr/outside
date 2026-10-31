@@ -9,15 +9,39 @@ import {
 } from '../public/js/pages.js';
 import { BOOK_SUBTITLE, BOOK_TITLE, COLOPHON, PIECES } from '../public/js/reading.js';
 
+/** @typedef {import('../public/js/pages.js').At} At */
+/** @typedef {import('../public/js/pages.js').Item} Item */
+/** @typedef {import('../public/js/pages.js').Measure} Measure */
+/** @typedef {import('../public/js/pages.js').ParagraphBlock} ParagraphBlock */
+/** @typedef {import('../public/js/pages.js').ReadingBlock} ReadingBlock */
+/** @typedef {import('../public/js/pages.js').SectionBlock} SectionBlock */
+/** @typedef {import('../public/js/pages.js').TextItem} TextItem */
+/** @typedef {import('../public/js/pages.js').VerseBlock} VerseBlock */
+/**
+ * One of a union's members, as the tests read it: any member's field off any of them, undefined
+ * where it has none (a rule's text, a heading's lines), as pages.js makes them.
+ * @template T
+ * @template [All=T]
+ * @typedef {T extends unknown ? T & { [K in Exclude<All extends unknown ? keyof All : never, keyof T>]?: undefined } : never} OneOf
+ */
+/** @typedef {Omit<import('../public/js/pages.js').Page, 'items'> & { items: OneOf<Item>[] }} Page pages.js's, its items read either way (OneOf) */
+
 // A stand-in for the canvas's measureText: every character half its font's size wide.
+/** @type {Measure} */
 const measure = (text, font) => text.length * font.size * 0.5 + (font.spacing ?? 0) * text.length;
 const book = { title: BOOK_TITLE, subtitle: BOOK_SUBTITLE, pieces: PIECES, colophon: COLOPHON };
+/** @type {Map<number, Page[]>} */
 const sized = new Map(FONT_STEPS.map((s) => [s, paginate(book, measure, { scale: s })]));
-const pages = sized.get(1);
+const pages = /** @type {Page[]} */ (sized.get(1)); // 1 is one of FONT_STEPS
+/** @type {(s: string) => string[]} */
 const words = (s) => s.split(/\s+/).filter(Boolean);
 const SOURCES = SECTION.piece + PIECES.length;
 
-/** The pages a piece is on: from its first to before the next one's (or the colophon). */
+/**
+ * The pages a piece is on: from its first to before the next one's (or the colophon).
+ * @param {number} i its index in PIECES
+ * @param {Page[]} [ps]
+ */
 function pagesOf(i, ps = pages) {
   const start = sectionStart(ps, SECTION.piece + i);
   let end = ps.findIndex((p, k) => k > start && p.section !== SECTION.piece + i);
@@ -30,7 +54,7 @@ test('every word of every piece is there, in order, at every size', () => {
     PIECES.forEach((piece, i) => {
       const { start, end } = pagesOf(i, ps);
       assert.ok(start > 1, `${piece.title} not found`);
-      const set = ps.slice(start, end).flatMap((p) => p.items.filter((it) => it.type === 'body').flatMap((it) => words(it.text)));
+      const set = ps.slice(start, end).flatMap((p) => /** @type {TextItem[]} */ (p.items.filter((it) => it.type === 'body')).flatMap((it) => words(it.text))); // lines: a rule has no type
       assert.deepEqual(set, words(piece.text), `${piece.title} at ${scale}`);
     });
   }
@@ -76,17 +100,17 @@ test('the title page, the contents with the right page numbers, the colophon, at
     assert.equal(ps[0].side, 'recto');
     assert.equal(ps[1].section, SECTION.contents);
     assert.ok(ps[1].items.some((it) => it.text === 'Contents'));
-    const contents = ps.filter((p) => p.section === SECTION.contents).flatMap((p) => p.items);
+    const contents = /** @type {TextItem[]} */ (ps.filter((p) => p.section === SECTION.contents).flatMap((p) => p.items)); // lines: the contents have no rules
     PIECES.forEach((piece, i) => {
       const { start } = pagesOf(i, ps);
-      const number = contents.find((it) => it.at[1] === i && it.align === 'right');
+      const number = /** @type {TextItem} */ (contents.find((it) => it.at[1] === i && it.align === 'right')); // every entry has its page number
       assert.equal(Number(number.text), ps[start].folio, `${piece.title} at ${scale}: listed at ${number.text}, starts at ${ps[start].folio}`);
     });
     assert.ok(ps.filter((p) => p.section === SOURCES).flatMap((p) => p.items).some((it) => it.text?.includes('public')));
-    assert.equal(ps.at(-1).section, SOURCES);
+    assert.equal(/** @type {Page} */ (ps.at(-1)).section, SOURCES); // the book has pages
   }
   // At the largest size the contents takes two pages.
-  assert.ok(sized.get(1.8).filter((p) => p.section === SECTION.contents).length > 1);
+  assert.ok(/** @type {Page[]} */ (sized.get(1.8)).filter((p) => p.section === SECTION.contents).length > 1); // 1.8 is one of FONT_STEPS
   assert.equal(pages.filter((p) => p.section === SECTION.contents).length, 1);
 });
 
@@ -107,6 +131,7 @@ test('running heads and page numbers on the pieces\' pages, none on the title, c
 
 test('every line has its place, in reading order, and a page starts at its first line\'s', () => {
   for (const [scale, ps] of sized) {
+    /** @type {At} */
     let prev = [-1, -2, 0];
     for (const [n, p] of ps.entries()) {
       const lines = p.items.filter((it) => !it.rule);
@@ -124,9 +149,10 @@ test('every line has its place, in reading order, and a page starts at its first
 
 test('at another size, the page with the same words', () => {
   // The page a piece's paragraph or stanza, at any word, is on: the same words at any size.
+  /** @type {(ps: Page[], at: At) => TextItem} */
   const where = (ps, at) => {
     const p = ps[pageAt(ps, at)];
-    return p.items.filter((it) => !it.rule && comparePlaces(it.at, at) <= 0).at(-1);
+    return /** @type {TextItem} */ (p.items.filter((it) => !it.rule && comparePlaces(it.at, at) <= 0).at(-1)); // one at least: pageAt's page starts at or before it
   };
   for (const [scale, ps] of sized) {
     for (const p of pages) {
@@ -145,7 +171,7 @@ test('the contents\' entries lead to their pieces', () => {
     assert.deepEqual(links.map((l) => l.section), PIECES.map((_, i) => SECTION.piece + i));
     for (const p of contents) {
       for (const l of p.links) {
-        const title = p.items.find((it) => it.link === l.section && it.start);
+        const title = /** @type {TextItem} */ (p.items.find((it) => it.link === l.section && it.start)); // a link's entry is on its page
         assert.equal(linkAt(p, TEXT_WIDTH / 2, title.y - 5)?.section, l.section, 'pressed on its title');
         assert.ok(l.y0 < title.y && l.y1 > title.y && l.y1 <= PAGE.bottom + 20);
       }
@@ -162,7 +188,7 @@ test('spreads, sides, progress and the toolbar\'s label', () => {
     assert.equal(sideOf(i) < 0 ? l : r, i);
     assert.equal(pageAtProgress(pages, progressOf(pages, i)), i);
   }
-  const last = pages.findLast((p) => p.folio).folio;
+  const last = /** @type {Page} */ (pages.findLast((p) => p.folio)).folio; // the pieces' pages are numbered
   assert.equal(folioLabel(pages, [0]), 'Title page');
   assert.equal(folioLabel(pages, [1, 2]), `1 / ${last}`);
   assert.equal(folioLabel(pages, [3, 4]), `${pages[4].folio} / ${last}`);
@@ -170,19 +196,21 @@ test('spreads, sides, progress and the toolbar\'s label', () => {
 });
 
 test('read out, each piece is its title, author and source, then its paragraphs or stanzas whole', () => {
+  /** @type {(s: string) => string} */
   const norm = (s) => words(s).join(' ');
-  for (const ps of [pages, sized.get(1.8)]) {
+  for (const ps of [pages, /** @type {Page[]} */ (sized.get(1.8))]) { // the largest of FONT_STEPS
     PIECES.forEach((piece, i) => {
       const { start, end } = pagesOf(i, ps);
       const indices = Array.from({ length: end - start }, (_, k) => start + k);
+      /** @type {OneOf<ReadingBlock>[]} */
       const [heading, author, ...rest] = readingText(ps, indices).blocks;
       assert.deepEqual(heading, { kind: 'heading', level: 3, text: piece.title });
       assert.equal(author.text, piece.author, 'as written, not in capitals');
-      const source = rest.shift();
+      const source = /** @type {ParagraphBlock} */ (rest.shift()); // the source, a paragraph
       assert.equal(norm(source.text), norm(piece.source));
       const parts = piece.text.split(/\n\s*\n/);
       if (piece.kind === 'prose') assert.deepEqual(rest.map((b) => b.text), parts.map(norm), piece.title);
-      else assert.deepEqual(rest.map((b) => b.lines.map(norm)), parts.map((s) => s.split('\n').map(norm)), piece.title);
+      else assert.deepEqual(/** @type {VerseBlock[]} */ (rest).map((b) => b.lines.map(norm)), parts.map((s) => s.split('\n').map(norm)), piece.title); // verse: stanzas
     });
   }
 });
@@ -193,17 +221,18 @@ test('read out, the title page, the contents and the sources, and where one is',
   assert.deepEqual(title.blocks.slice(0, 2), [{ kind: 'heading', level: 3, text: BOOK_TITLE }, { kind: 'paragraph', text: BOOK_SUBTITLE, continued: false }]);
   // The book's headings sit under the h2 that says where one is (overlay.js): never above it.
   for (let i = 0; i < pages.length; i++) for (const b of readingText(pages, [i]).blocks) if (b.kind === 'heading') assert.equal(b.level, 3);
+  /** @type {OneOf<ReadingBlock>[]} */
   const contents = readingText(pages, [1]).blocks;
   assert.deepEqual(contents[0], { kind: 'heading', level: 3, text: 'Contents' });
   assert.deepEqual(contents[1].items, PIECES.map((p, i) => `${p.title}, ${p.author}, page ${pages[pagesOf(i).start].folio}`));
   // At the largest size, over two pages: still each entry with its own page number.
-  const big = sized.get(1.8);
+  const big = /** @type {Page[]} */ (sized.get(1.8)); // the largest of FONT_STEPS
   const both = big.map((p, i) => (p.section === SECTION.contents ? i : -1)).filter((i) => i >= 0);
   assert.equal(spreadLabel(big, both), 'The contents');
-  assert.deepEqual(readingText(big, both).blocks.flatMap((b) => b.items ?? []), PIECES.map((p, i) => `${p.title}, ${p.author}, page ${big[pagesOf(i, big).start].folio}`));
+  assert.deepEqual(readingText(big, both).blocks.flatMap((/** @type {OneOf<ReadingBlock>} */ b) => b.items ?? []), PIECES.map((p, i) => `${p.title}, ${p.author}, page ${big[pagesOf(i, big).start].folio}`));
   const sources = readingText(pages, [pages.length - 1]);
   assert.equal(sources.label, 'The sources');
-  assert.deepEqual(sources.blocks.map((b) => b.text), COLOPHON.map((c) => words(c).join(' ')));
+  assert.deepEqual(sources.blocks.map((/** @type {OneOf<ReadingBlock>} */ b) => b.text), COLOPHON.map((c) => words(c).join(' ')));
   assert.equal(spreadLabel(pages, [1, 2]), 'The contents and page 1');
   assert.equal(spreadLabel(pages, [3, 4]), `Pages ${pages[3].folio} and ${pages[4].folio}`);
   assert.equal(spreadLabel(pages, [4]), `Page ${pages[4].folio}`);
@@ -214,7 +243,7 @@ test('read out, the title page, the contents and the sources, and where one is',
     if (l === null || r === null || !pages[r].kind) continue;
     const both2 = readingText(pages, [l, r]).blocks.length;
     const apart = readingText(pages, [l]).blocks.length + readingText(pages, [r]).blocks.length;
-    const runsOn = pages[r].items.find((it) => it.type === 'body') && !pages[r].items.find((it) => it.type === 'body').start && pages[l].kind === pages[r].kind;
+    const runsOn = pages[r].items.find((it) => it.type === 'body') && !/** @type {TextItem} */ (pages[r].items.find((it) => it.type === 'body')).start && pages[l].kind === pages[r].kind; // a body line, found just before
     assert.equal(both2, apart - (runsOn ? 1 : 0), `spread ${s}`);
   }
 });
@@ -232,13 +261,14 @@ test('spreads: the title alone on the right of the first, then two pages each', 
 test('each part as blocks for the text view: the words of its pages, numbered as their places', () => {
   assert.equal(sectionCount(book), SOURCES + 1);
   for (let s = 0; s < sectionCount(book); s++) {
+    /** @type {OneOf<SectionBlock>[]} */
     const blocks = sectionBlocks(book, s);
     // Every place a line of this part has is one of its blocks.
     const own = new Set(blocks.map((b) => b.b));
     for (const p of pages.filter((pg) => pg.section === s)) for (const it of p.items) if (!it.rule && !(s === SECTION.title && it.type === 'small')) assert.ok(own.has(it.at[1]), `part ${s}: block ${it.at[1]}`);
     if (s >= SECTION.piece && s < SOURCES) {
       const piece = PIECES[s - SECTION.piece];
-      const text = blocks.filter((b) => b.b >= 0).flatMap((b) => (b.lines ? b.lines.flatMap(words) : words(b.text)));
+      const text = blocks.filter((b) => b.b >= 0).flatMap((b) => (b.lines ? b.lines.flatMap(words) : words(/** @type {string} */ (b.text)))); // not a stanza, a paragraph
       assert.deepEqual(text, words(piece.text), piece.title);
       assert.deepEqual(blocks.slice(0, 2).map((b) => b.text ?? b.author), [piece.title, piece.author]);
     }
