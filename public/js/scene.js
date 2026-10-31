@@ -22,6 +22,10 @@ const lin = (hex) => {
 };
 /** A colour k times as bright. @type {(c: RGB, k: number) => RGB} */
 const scale = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+/**
+ * Where v is from a to b, eased: 0 at a and before it, 1 at b and after (GLSL's smoothstep).
+ * @type {(a: number, b: number, v: number) => number}
+ */
 const smooth = (a, b, v) => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
   return t * t * (3 - 2 * t);
@@ -107,6 +111,10 @@ export function buildGarden(L, { names, glow, anisotropy = 1, lite = new Set() }
   const started = performance.now();
   const group = new THREE.Group();
   group.name = 'garden';
+  /**
+   * A mesh of the garden's, named, added to its group.
+   * @type {(geometry: THREE.BufferGeometry, material: THREE.Material, name: string) => THREE.Mesh}
+   */
   const add = (geometry, material, name) => {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = name;
@@ -133,8 +141,12 @@ export function buildGarden(L, { names, glow, anisotropy = 1, lite = new Set() }
     lights: [{ p: [0, 1.1, -0.35], c: lin(glow), i: 0.9, r: 0.75, wrap: 0.3 }],
     occluders: prepare(shadows),
   };
-  const light = (p, n, out) => lightAt(p, n, env, {}, out);
+  /**
+   * Bakes a builder's light (bake.js's bake, with its options) and gives back its geometry.
+   * @type {(b: Builder, o?: Parameters<typeof bake>[2]) => THREE.BufferGeometry}
+   */
   const lit = (b, o = {}) => bake(b, env, o).toGeometry();
+  /** The light at p, facing n, as a colour. @type {(p: number[], n: number[]) => THREE.Color} */
   const lightColor = (p, n) => {
     const c = lightAt(p, n, env, {});
     return new THREE.Color(c[0], c[1], c[2]);
@@ -226,7 +238,10 @@ export function buildGarden(L, { names, glow, anisotropy = 1, lite = new Set() }
   terrainMaterial.uniforms.uMud.value = mudTexture();
   const groundMesh = add(groundGeometry, terrainMaterial, 'ground');
 
-  /** The ground's baked light at (x, z) (bilinear on the grid), for what grows from it. */
+  /**
+   * The ground's baked light at (x, z) (bilinear on the grid), for what grows from it.
+   * @type {(x: number, z: number, out: number[]) => number[]}
+   */
   const groundLightAt = (x, z, out) => {
     const fx = Math.min(G.nx - 1.001, Math.max(0, (x - G.x0) / G.step)), fz = Math.min(G.nz - 1.001, Math.max(0, (G.z0 - z) / G.step));
     const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j;
@@ -248,7 +263,7 @@ export function buildGarden(L, { names, glow, anisotropy = 1, lite = new Set() }
   add(lit(trim), new THREE.MeshBasicMaterial({ vertexColors: true }), 'trim');
   // Leaves take the sun a little round their sides: light comes through them.
   add(lit(leaves, { wrap: 0.5 }), new THREE.MeshBasicMaterial({ map: leafTexture(), vertexColors: true }), 'leaves');
-  sway.colors = Float32Array.from(sway.lit);
+  sway.colors = Float32Array.from(/** @type {number[]} */ (sway.lit)); // buildTrees and buildGrass fill it
   // Blades and strands are single sheets, seen from either side.
   const swayMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
   const time = { value: 0 };
@@ -283,7 +298,13 @@ export function buildGarden(L, { names, glow, anisotropy = 1, lite = new Set() }
   console.info(`outside: the garden built in ${Math.round(performance.now() - started)} ms`);
   return {
     group, layout: L, house, panel: house.panel, water, sky: dome, env, lightColor,
-    /** Per frame: the water flows, the grass sways, the doorway's veil drifts. */
+    /**
+     * Per frame: the water flows, the grass sways, the doorway's veil drifts.
+     * @param {number} t seconds, what moves on its own goes by (main.js's time)
+     * @param {number} dt seconds since the last frame
+     * @param {THREE.Vector3} head where the viewer's head is
+     * @param {boolean} hoverDoor whether the doorway is pointed at
+     */
     update(t, dt, head, hoverDoor) {
       time.value = t;
       water.update(t);
@@ -292,9 +313,14 @@ export function buildGarden(L, { names, glow, anisotropy = 1, lite = new Set() }
   };
 }
 
-/** Trees beyond the hedges and the far wall: crowns over the hedge tops, a wood behind the meadow. */
+/**
+ * Trees beyond the hedges and the far wall: crowns over the hedge tops, a wood behind the meadow.
+ * @param {Builder} leaves
+ * @param {Builder} trim
+ */
 function distantTrees(leaves, trim) {
   const r = rng(401);
+  /** Where trees stand so far: x and z each. @type {[number, number][]} */
   const spots = [];
   for (let k = 0; k < 120 && spots.length < 40; k++) {
     const a = r();
