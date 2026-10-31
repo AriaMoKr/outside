@@ -197,6 +197,7 @@ export class TextView {
     // top once the reader's own scrolling rests (_sync). The view's own scrolls are not reading:
     // _self while a smooth one runs, _selfTop where an instant one left the view. _moved: the
     // reader has scrolled since the place was taken.
+    /** @type {import('./pages.js').At | null} */
     this._at = null;
     this._aim = null; // a place the view goes to, not the 3D page's first block (a size, a part)
     this._self = false;
@@ -477,6 +478,7 @@ export class TextView {
 
   /** A section's part, from its start: the previous or next one, or a piece in the contents. */
   _goTo(section) {
+    /** @type {import('./pages.js').At} */
     const at = [section, -1, 0];
     this._aim = at;
     // The spread may show the part's start already (a piece begun on its right-hand page): the

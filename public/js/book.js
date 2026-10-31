@@ -21,6 +21,12 @@ import { READ, THEMES, THEME_ORDER, fontStep, pageViewSetting, singlePage } from
 import { Panel, UI } from './canvas-panel.js';
 import { GOLD, SERIF, canvas } from './textures.js';
 
+/** @typedef {import('./pages.js').At} At */
+/** @typedef {import('./pages.js').Font} Font */
+/** @typedef {import('./pages.js').Link} Link */
+/** @typedef {import('./pages.js').Page} Page */
+/** @typedef {import('./reader.js').ThemeName} ThemeName */
+
 const PAGE_W = 0.15, PAGE_H = (PAGE_W * PAGE.height) / PAGE.width;
 const CLOTH = '#2f4a37';
 const TURN = 0.5; // seconds a page takes to turn
@@ -32,12 +38,19 @@ const CONTENTS = { width: 0.2, height: 0.26, px: 546 };
 const TEXT = { title: BOOK_TITLE, subtitle: BOOK_SUBTITLE, pieces: PIECES, colophon: COLOPHON };
 const TRAIL = 100; // places kept to go back to
 
+/** @type {(t: Font) => string} */
 const font = (t) => `${t.style} ${t.size}px ${SERIF}`.trim();
+/** @type {(v: number, lo: number, hi: number) => number} */
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
-/** A page's picture in a theme (reader.js THEMES), at a text size's type (pages.js typeAt): paper, its text, its running head and number. */
+/**
+ * A page's picture in a theme (reader.js THEMES), at a text size's type (pages.js typeAt): paper, its text, its running head and number.
+ * @param {Page | null} page null: the inside of a cover, paper alone
+ * @param {(typeof THEMES)[ThemeName]} theme
+ * @param {ReturnType<typeof typeAt>} T
+ */
 function paintPage(page, theme, T) {
-  const c = canvas(PAGE.width, PAGE.height), g = c.getContext('2d');
+  const c = canvas(PAGE.width, PAGE.height), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')); // a new canvas always has one
   g.fillStyle = theme.paper;
   g.fillRect(0, 0, c.width, c.height);
   // A little shading toward the spine, which is on the left of a right-hand page.
@@ -53,7 +66,7 @@ function paintPage(page, theme, T) {
   g.strokeStyle = theme.rule;
   g.textBaseline = 'alphabetic';
   for (const it of page.items) {
-    if (it.rule) {
+    if ('rule' in it) {
       g.lineWidth = 1.5;
       g.beginPath();
       g.moveTo(x0 + it.x0, it.y);
@@ -99,7 +112,7 @@ function paintPage(page, theme, T) {
 /** The cover: green cloth, a gold rule round it, the title and a small ornament. */
 function coverCanvas() {
   const W = 512, H = Math.round((512 * BOOK.length) / BOOK.width);
-  const c = canvas(W, H), g = c.getContext('2d');
+  const c = canvas(W, H), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')); // a new canvas always has one
   g.fillStyle = CLOTH;
   g.fillRect(0, 0, W, H);
   for (let i = 0; i < 4000; i++) {
@@ -132,8 +145,12 @@ function coverCanvas() {
   return c;
 }
 
+/**
+ * The closed book's spine, its title in gold, or (spine false) its page edges.
+ * @param {boolean} spine
+ */
 function sideCanvas(spine) {
-  const c = canvas(256, 64), g = c.getContext('2d');
+  const c = canvas(256, 64), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')); // a new canvas always has one
   if (spine) {
     g.fillStyle = CLOTH;
     g.fillRect(0, 0, 256, 64);
@@ -157,6 +174,7 @@ function sideCanvas(spine) {
   return c;
 }
 
+/** @type {(c: HTMLCanvasElement, anisotropy: number) => THREE.CanvasTexture} */
 const tex = (c, anisotropy) => {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -164,10 +182,10 @@ const tex = (c, anisotropy) => {
   return t;
 };
 
-/** How far a page rises off the book, u of the way from the spine (0) to its edge (1). */
+/** How far a page rises off the book, u of the way from the spine (0) to its edge (1). @type {(u: number) => number} */
 const rise = (u) => 0.012 * Math.max(0, Math.sin(Math.PI * Math.min(1, u * 1.15))) ** 0.7;
 
-/** A page, curved a little up from the spine: its origin on the spine, reaching `dir` (+1 right, -1 left). */
+/** A page, curved a little up from the spine: its origin on the spine, reaching `dir` (+1 right, -1 left). @param {number} dir */
 function pageGeometry(dir) {
   const g = new THREE.PlaneGeometry(PAGE_W, PAGE_H, 16, 1);
   const p = g.attributes.position;
@@ -180,7 +198,7 @@ function pageGeometry(dir) {
     // Mirrored: keep it facing +z, and its picture the right way round.
     const uv = g.attributes.uv;
     for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i));
-    g.index.array.reverse();
+    /** @type {THREE.BufferAttribute} */ (g.index).array.reverse(); // a plane's faces are indexed
   }
   return g;
 }
@@ -188,25 +206,31 @@ function pageGeometry(dir) {
 /**
  * The turning leaf's front (facing +z) or back (facing -z, its picture reversed so it reads the
  * right way once turned over), on the spine, reaching right. bendLeaf curves it as it turns.
+ * @param {boolean} back
  */
 function leafGeometry(back) {
   const g = new THREE.PlaneGeometry(PAGE_W, PAGE_H, 16, 1).translate(PAGE_W / 2, 0, 0);
   if (back) {
     const uv = g.attributes.uv;
     for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i));
-    g.index.array.reverse();
+    /** @type {THREE.BufferAttribute} */ (g.index).array.reverse(); // a plane's faces are indexed
   }
   return g;
 }
 
-/** Curves the leaf by k (1: as the right page; -1, turned over: as the left one), a side a little off it. */
+/**
+ * Curves the leaf by k (1: as the right page; -1, turned over: as the left one), a side a little off it.
+ * @param {THREE.BufferGeometry} g
+ * @param {number} k
+ * @param {number} off
+ */
 function bendLeaf(g, k, off) {
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) p.setZ(i, k * rise(p.getX(i) / PAGE_W) + off);
   p.needsUpdate = true;
 }
 
-/** Boxes ([geometry, colour]) as one geometry, coloured by vertex: one draw call. */
+/** Boxes ([geometry, colour]) as one geometry, coloured by vertex: one draw call. @param {[THREE.BufferGeometry, string][]} boxes */
 function mergeBoxes(boxes) {
   const parts = boxes.map(([g]) => g.toNonIndexed());
   const n = parts.reduce((s, g) => s + g.attributes.position.count, 0);
@@ -224,7 +248,12 @@ function mergeBoxes(boxes) {
   return out;
 }
 
-/** One side of the open book: its board and the pages under the open one (one mesh), and the page (dir -1 left, 1 right). */
+/**
+ * One side of the open book: its board and the pages under the open one (one mesh), and the page (dir -1 left, 1 right).
+ * @param {number} dir
+ * @param {THREE.Material} coverMaterial
+ * @param {THREE.MeshBasicMaterial} pageMaterial
+ */
 function bookHalf(dir, coverMaterial, pageMaterial) {
   const group = new THREE.Group();
   const board = new THREE.BoxGeometry(PAGE_W + 0.006, PAGE_H + 0.012, 0.004).translate((dir * (PAGE_W + 0.006)) / 2, 0, -0.004);
@@ -235,6 +264,12 @@ function bookHalf(dir, coverMaterial, pageMaterial) {
   return { group, page };
 }
 
+/**
+ * What a ray meets on the open book (pick's): one of its panels ('bookui') or a page ('page'), the
+ * other kind's fields left null, 0 or -1. controls.js's GardenHit has them all.
+ * @typedef {{ t: number, kind: string, side: number, panel: Panel | null, el: import('./canvas-panel.js').Control | null, u: number, v: number, page: number, link: Link | null }} BookHit
+ */
+
 export class Book {
   /**
    * @param {object} o
@@ -242,20 +277,26 @@ export class Book {
    * @param {{ x: number, y: number, z: number, yaw: number }} o.place where it lies closed (garden.js layout's book)
    * @param {number} [o.anisotropy] its textures' anisotropic filtering (main.js's)
    * @param {(p: number[], n: number[]) => THREE.Color} o.light the light at a point
-   * @param {ReturnType<import('./reader.js').readerSettings>} o.settings the reader's choices (main.js keeps them)
+   * @param {import('./reader.js').ReaderSettings} o.settings the reader's choices (main.js keeps them)
    */
   constructor({ scene, place, anisotropy = 1, light, settings }) {
     this.anisotropy = anisotropy;
     /** The reader's choices (reader.js readerSettings), changed here; onSettings when they have (main.js stores them). */
     this.settings = settings;
-    this.pages = null; // set when it is first opened (setting it takes a few tens of milliseconds)
+    /**
+     * The book set in pages (pages.js paginate) at the text size chosen: none until it is first
+     * opened (setting it takes a few tens of milliseconds). @type {Page[]}
+     */
+    this.pages = [];
+    this._type = typeAt(settings.fontScale); // the pages' type, at their size (_layout sets both)
     this.spreads = 0;
     this.spread = 0;
     this.focus = 1; // one page at a time, the page shown: -1 left, 1 right
     this.single = false;
     this.isOpen = false;
     this.xr = false; // held in VR
-    this.camera = null; // the eyes it was opened in front of
+    /** The eyes it was opened in front of. @type {THREE.PerspectiveCamera | null} */
+    this.camera = null;
     /** Less motion (common/access.js): a page turns, and a narrow screen goes to the other page, at once. */
     this.reduceMotion = false;
     /**
@@ -274,26 +315,33 @@ export class Book {
     this.onHold = () => {};
     /** (depth) a link was followed, `depth` deep: main.js adds an entry to the browser's history (back-history.js). @type {(depth: number) => void} */
     this.onTrail = () => {};
-    /** back-history.js, when main.js has one: Back goes back through the browser's history. */
+    /** back-history.js, when main.js has one: Back goes back through the browser's history. @type {import('common/back-history.js').BackHistory | null} */
     this.history = null;
-    /** The places a link was followed from (pages.js `at`), to go back to; the first dropped ones, counted. */
+    /** The places a link was followed from (pages.js `at`), to go back to; the first dropped ones, counted. @type {At[]} */
     this.trail = [];
     this._trailBase = 0;
-    this._cache = new Map(); // page index → texture
-    this._turning = null; // { t, side, to }
+    /** Page index (-1 a blank one) → its texture. @type {Map<number, THREE.CanvasTexture>} */
+    this._cache = new Map();
+    /** A turn under way: how far over (0…1), which way, the spread it goes to. @type {{ t: number, side: number, to: number } | null} */
+    this._turning = null;
     this._slide = 0; // the open book's offset, while sliding
     this._slideTo = 0;
     this._saveIn = 0; // seconds until the settings are stored (the size and distance change every frame while a stick is held)
-    this._grabbed = null; // the controller moving it
-    this._sized = null; // the words the last change of text size kept to, and the place it showed: { at, shown }
-    this._paged = null; // the page the last change to one page or two kept to: { i, shown }
+    /** The controller moving it. @type {THREE.Object3D | null} */
+    this._grabbed = null;
+    /** The words the last change of text size kept to, and the place it showed. @type {{ at: At, shown: At | null } | null} */
+    this._sized = null;
+    /** The page the last change to one page or two kept to, and the place it showed. @type {{ i: number, shown: At | null } | null} */
+    this._paged = null;
     this._grabOffset = new THREE.Matrix4();
     /** The eyes _fit projects the book's corners as, made when first needed. @type {THREE.PerspectiveCamera | null} */
     this._fitCamera = null;
     this._m = new THREE.Matrix4();
     this._s = new THREE.Vector3();
+    /** What pick met: the same object each time. @type {BookHit} */
     this._pick = { t: 0, kind: 'page', side: 0, panel: null, el: null, u: 0, v: 0, page: -1, link: null };
     this._pointerOn = { toolbar: false, contents: false };
+    /** The contents entry with its band (_markLink), and its page. @type {{ page: number, link: Link | null }} */
     this._marked = { page: -1, link: null };
     this._o = new THREE.Vector3();
     this._d = new THREE.Vector3();
@@ -303,6 +351,7 @@ export class Book {
 
     // Closed, on the bench.
     const lit = light([place.x, place.y + 0.05, place.z], [0, 1, 0]);
+    /** @type {(c: HTMLCanvasElement) => THREE.MeshBasicMaterial} */
     const tint = (c) => new THREE.MeshBasicMaterial({ map: tex(c, anisotropy), color: lit });
     const edge = tint(sideCanvas(false)), spine = tint(sideCanvas(true)), cover = tint(coverCanvas());
     const board = new THREE.MeshBasicMaterial({ color: new THREE.Color(CLOTH).multiply(lit) });
@@ -418,12 +467,12 @@ export class Book {
     this._updateToolbar();
   }
 
-  /** The keys, in the contents (↑ ↓): the entry marked moves; whether the contents is open to take them. */
+  /** The keys, in the contents (↑ ↓): the entry marked moves; whether the contents is open to take them. @param {number} dir */
   moveContents(dir) {
     if (!this.contents.visible) return false;
     const list = /** @type {import('./canvas-panel.js').ListElement} */ (this.contents.get('list')); // _fillContents's
     const n = list.items.length;
-    const from = Number.isInteger(list.hoverRow) ? list.hoverRow : list.items.findIndex((it) => it.active);
+    const from = Number.isInteger(list.hoverRow) ? /** @type {number} */ (list.hoverRow) : list.items.findIndex((it) => it.active); // the row marked (an integer), else the one being read
     list.hoverRow = clamp((from < 0 ? (dir > 0 ? -1 : n) : from) + dir, 0, n - 1);
     this.contents.hover = list;
     this.contents.markDirty();
@@ -434,9 +483,9 @@ export class Book {
   chooseContents() {
     if (!this.contents.visible) return false;
     const list = /** @type {import('./canvas-panel.js').ListElement} */ (this.contents.get('list')); // _fillContents's
-    const it = Number.isInteger(list.hoverRow) ? list.items[list.hoverRow] : null;
+    const it = Number.isInteger(list.hoverRow) ? list.items[/** @type {number} */ (list.hoverRow)] : null; // the row marked (an integer)
     if (!it) return false;
-    it.onClick();
+    it.onClick?.(); // as the panel's click calls it
     return true;
   }
 
@@ -480,7 +529,7 @@ export class Book {
 
   /** Sets it in pages at the text size chosen (the first time it is needed, and again at another size). */
   _layout() {
-    const g = canvas(8, 8).getContext('2d');
+    const g = /** @type {CanvasRenderingContext2D} */ (canvas(8, 8).getContext('2d')); // a new canvas always has one
     this.pages = paginate(TEXT, (text, t) => {
       g.font = font(t);
       return g.measureText(text).width + (t.spacing ?? 0) * text.length;
@@ -491,12 +540,12 @@ export class Book {
 
   /** Sets it in pages, the first time, open where the reader was last time. */
   _set() {
-    if (this.pages) return;
+    if (this.pages.length) return;
     this._layout();
     if (this.settings.at) this._at(pageAt(this.pages, this.settings.at));
   }
 
-  /** Spread and side of page i (without showing it). */
+  /** Spread and side of page i (without showing it). @param {number} i */
   _at(i) {
     this.spread = spreadOf(i);
     this.focus = sideOf(i);
@@ -504,7 +553,7 @@ export class Book {
     this.inner.position.x = this._slide;
   }
 
-  /** The texture of page i (painted the first time), or of a blank one for null. */
+  /** The texture of page i (painted the first time), or of a blank one for null. @param {number | null} i */
   _page(i) {
     const key = i ?? -1;
     if (!this._cache.has(key)) {
@@ -520,7 +569,7 @@ export class Book {
         }
       }
     }
-    return this._cache.get(key);
+    return /** @type {THREE.CanvasTexture} */ (this._cache.get(key)); // painted above if it was not, and kept
   }
 
   /** All pages to be painted again (another theme, another size). */
@@ -529,6 +578,11 @@ export class Book {
     this._cache.clear();
   }
 
+  /**
+   * Page i's picture (null: a blank one) on one of the open book's pages, or a side of the leaf.
+   * @param {THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>} mesh
+   * @param {number | null} i
+   */
   _setMap(mesh, i) {
     mesh.material.map = this._page(i);
     mesh.material.needsUpdate = true;
@@ -541,7 +595,7 @@ export class Book {
     this._setMap(this.right, r);
   }
 
-  /** The pages open to read at `spread`: both, or a page at a time the one in view (onShow). */
+  /** The pages open to read at `spread`: both, or a page at a time the one in view (onShow). @param {number} spread */
   _reading(spread) {
     const [l, r] = spreadPages(this.pages, spread);
     return (this.single ? [this.focus < 0 ? l : r] : [l, r]).filter((i) => i !== null);
@@ -555,7 +609,7 @@ export class Book {
   /** The page being read (vrlbry's): the left one of two, else the right; a page at a time, the one in view. */
   _readingIndex(spread = this._target()) {
     const [l, r] = spreadPages(this.pages, spread);
-    return this.single ? (this.focus < 0 ? l : r) ?? r ?? l : l ?? r;
+    return /** @type {number} */ (this.single ? (this.focus < 0 ? l : r) ?? r ?? l : l ?? r); // a spread has a page on one side at least
   }
 
   /** The pages open to read now (as onShow said them), and the page being read. */
@@ -569,7 +623,7 @@ export class Book {
 
   /** Where the reader is: the place (pages.js `at`) of the page being read. */
   get place() {
-    return this.pages ? this.pages[this._readingIndex()].at : this.settings.at;
+    return this.pages.length ? this.pages[this._readingIndex()].at : this.settings.at;
   }
 
   /** The pages now open (or a turn under way goes to), said (onShow), on the toolbar, and kept as the place being read. */
@@ -586,6 +640,8 @@ export class Book {
    * Opens it in front of the camera: at reading distance a little below the eyes, turned up to
    * them, its toolbar under it. On a screen it is as near as fills most of the view; on a narrow
    * one (or when chosen), a page at a time. In VR, as far and as large as it was last held.
+   * @param {THREE.PerspectiveCamera} camera
+   * @param {{ xr?: boolean, aspect?: number, fov?: number }} [view] whether in VR, and the view's width over its height and its vertical field of view (degrees)
    */
   open(camera, { xr = false, aspect = 1, fov = 70 } = {}) {
     this.xr = xr;
@@ -606,9 +662,10 @@ export class Book {
    * Puts it in front of the eyes (as when it opens): the way they face, held low, looked down at.
    * On a screen, as near as the pages and the toolbar under them fill most of the view; in VR, as
    * far as it was last held there.
+   * @param {{ aspect?: number, fov?: number }} [view] the view's width over its height and its vertical field of view (degrees): the camera's, unless given
    */
-  _hold({ aspect = this.camera.aspect, fov = this.camera.fov } = {}) {
-    const camera = this.camera;
+  _hold({ aspect, fov } = {}) {
+    const camera = /** @type {THREE.PerspectiveCamera} */ (this.camera); // open's
     camera.updateMatrixWorld();
     camera.getWorldPosition(this._o);
     camera.getWorldDirection(this._d);
@@ -622,6 +679,7 @@ export class Book {
     this.inner.position.x = this._slide;
     const eye = this._o.clone();
     const dir = new THREE.Vector3(-Math.sin(yaw) * Math.cos(down), -Math.sin(down), -Math.cos(yaw) * Math.cos(down));
+    /** @type {(distance: number, lift: number) => void} */
     const put = (distance, lift) => {
       this.group.position.copy(eye).addScaledVector(dir, distance);
       if (lift) this.group.translateY(lift);
@@ -629,7 +687,7 @@ export class Book {
       this._placePanels();
     };
     if (this.xr) put(this.settings.readDistance ?? XR_DISTANCE, 0);
-    else this._fit(put, eye, yaw, down, { aspect, fov });
+    else this._fit(put, eye, yaw, down, { aspect: aspect ?? camera.aspect, fov: fov ?? camera.fov });
     return { pitch: -down };
   }
 
@@ -638,6 +696,11 @@ export class Book {
    * at its top and a strip at its foot (the hint and the buttons there), as vrlbry's fitOnePage
    * does. Their corners are projected as the eyes will see them (looking down at it), since the
    * pages' curve and the toolbar come nearer than the book's middle; a few rounds settle it.
+   * @param {(distance: number, lift: number) => void} put holds it that far along the line it is held on, and that much higher
+   * @param {THREE.Vector3} eye
+   * @param {number} yaw the way the eyes face
+   * @param {number} down how far below level it is held (radians)
+   * @param {{ aspect: number, fov: number }} view the view's width over its height and its vertical field of view (degrees)
    */
   _fit(put, eye, yaw, down, { aspect, fov }) {
     const TOP = 0.96, FOOT = -0.8, SIDE = 0.95; // the view's extent the book may fill (-1 to 1)
@@ -655,6 +718,7 @@ export class Book {
     for (let round = 0; round < 8; round++) {
       put(distance, lift);
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      /** A point of obj's, as the eyes will see it: the block's height, and (wide) its width. @type {(obj: THREE.Object3D, x: number, y: number, z: number, wide?: boolean) => void} */
       const see = (obj, x, y, z, wide = true) => {
         v.set(x, y, z);
         obj.localToWorld(v).project(cam);
@@ -691,7 +755,7 @@ export class Book {
   /** The screen changed shape: one page or two again ('auto'), held where it fits. */
   refit() {
     if (!this.isOpen || this.xr) return;
-    const single = singlePage(this.settings.pageView, { aspect: this.camera.aspect });
+    const single = singlePage(this.settings.pageView, { aspect: /** @type {THREE.PerspectiveCamera} */ (this.camera).aspect }); // open's
     if (single !== this.single) this.setSingle(single);
     else this.toFront();
   }
@@ -708,7 +772,7 @@ export class Book {
     this._trailBase = 0;
   }
 
-  /** On a page (side 1) or back one (side -1). */
+  /** On a page (side 1) or back one (side -1). @param {number} side */
   turn(side) {
     if (!this.isOpen) return;
     if (this._turning) this._finishTurn();
@@ -725,7 +789,11 @@ export class Book {
     this._turnTo(this.spread + side);
   }
 
-  /** Over to spread `to` with the leaf, from either side; a page at a time, to the side `focus` (or as a turn leaves it). */
+  /**
+   * Over to spread `to` with the leaf, from either side; a page at a time, to the side `focus` (or as a turn leaves it).
+   * @param {number} to
+   * @param {number | null} [focus]
+   */
   _turnTo(to, focus = null) {
     if (to < 0 || to >= this.spreads) return;
     if (this._turning) this._finishTurn();
@@ -756,12 +824,12 @@ export class Book {
     this._shown();
   }
 
-  /** To page i with a turn (the contents, a link, the slider, Back). */
+  /** To page i with a turn (the contents, a link, the slider, Back). @param {number} i */
   _jumpTo(i) {
     this._turnTo(spreadOf(i), sideOf(i));
   }
 
-  /** Shows page i at once, without a turn (another size, one page or two, the text view's place). */
+  /** Shows page i at once, without a turn (another size, one page or two, the text view's place). @param {number} i */
   _showAt(i) {
     this._finishTurn();
     this._at(i);
@@ -769,7 +837,7 @@ export class Book {
     this._shown();
   }
 
-  /** The leaf e of the way over (0 lying on the right, 1 on the left), bending as it goes and lifting a little. */
+  /** The leaf e of the way over (0 lying on the right, 1 on the left), bending as it goes and lifting a little. @param {number} e */
   _leafAt(e) {
     const angle = -Math.PI * e, k = Math.cos(angle);
     this.leaf.rotation.y = angle;
@@ -778,6 +846,7 @@ export class Book {
     bendLeaf(this.leafBack.geometry, k, -0.003);
   }
 
+  /** A page at a time: the page in view (-1 left, 1 right), the book sliding across to it. @param {number} f */
   _focus(f) {
     this.focus = f;
     this._slideTo = -f * (PAGE_W / 2);
@@ -798,12 +867,13 @@ export class Book {
    * A step larger (1) or smaller (-1) text (+ −, A+ A−): set in pages again, open at the same
    * words. Steps one after another keep to the words the first started from (the page with them
    * may come on the right, and the left one, read first, is earlier), until a page is turned.
+   * @param {number} step
    */
   changeFont(step) {
     if (!this.isOpen) return;
     const next = fontStep(this.settings.fontScale, step);
     if (next === this.settings.fontScale) return;
-    const at = this._sized?.shown === this.place ? this._sized.at : this.place;
+    const at = /** @type {At} */ (this._sized?.shown === this.place ? this._sized.at : this.place); // open: a place
     this.settings.fontScale = next;
     this._finishTurn();
     this._forget();
@@ -812,11 +882,12 @@ export class Book {
     this._sized = { at, shown: this.place };
   }
 
-  /** A theme by name (paper, sepia or night): the pages painted again, the text and its place as they were. */
+  /** A theme by name (paper, sepia or night): the pages painted again, the text and its place as they were. @param {string} name */
   setTheme(name) {
     if (!Object.hasOwn(THEMES, name) || name === this.settings.theme) return;
-    this.settings.theme = name;
-    this.mark.material.color.set(THEMES[name].link);
+    const theme = /** @type {ThemeName} */ (name); // one of THEMES' (above)
+    this.settings.theme = theme;
+    this.mark.material.color.set(THEMES[theme].link);
     this._forget();
     if (this.isOpen) {
       this._finishTurn();
@@ -837,7 +908,7 @@ export class Book {
   togglePages() {
     if (!this.isOpen) return;
     const single = !this.single;
-    this.settings.pageView = pageViewSetting(single, singlePage('auto', { xr: this.xr, aspect: this.camera.aspect }));
+    this.settings.pageView = pageViewSetting(single, singlePage('auto', { xr: this.xr, aspect: /** @type {THREE.PerspectiveCamera} */ (this.camera).aspect })); // open's
     this.setSingle(single);
   }
 
@@ -845,6 +916,7 @@ export class Book {
    * Shows it a page at a time (single) or two, at the page being read; on a screen, where that
    * fits. Back and forth without a turn, it keeps to the page it started from (two pages are read
    * from the left one).
+   * @param {boolean} single
    */
   setSingle(single) {
     if (!this.isOpen || single === this.single) return;
@@ -859,10 +931,10 @@ export class Book {
 
   // ── Where the book is held ─────────────────────────────────────────────────
 
-  /** Nearer (delta < 0) or farther, in metres: the wheel, a pinch, a gamepad's triggers, the right stick in VR. */
+  /** Nearer (delta < 0) or farther, in metres: the wheel, a pinch, a gamepad's triggers, the right stick in VR. @param {number} delta */
   adjustDistance(delta) {
     if (!this.isOpen) return;
-    const eye = this.camera.getWorldPosition(this._e);
+    const eye = /** @type {THREE.PerspectiveCamera} */ (this.camera).getWorldPosition(this._e); // open's
     const to = this._w.copy(this.group.position).sub(eye);
     const d = clamp(to.length() + delta, this.xr ? READ.nearest : READ.nearestScreen, READ.farthest);
     this.group.position.copy(eye).addScaledVector(to.normalize(), d);
@@ -874,7 +946,7 @@ export class Book {
     this._placePanels();
   }
 
-  /** Larger (delta > 0) or smaller, by that fraction: the left stick in VR. */
+  /** Larger (delta > 0) or smaller, by that fraction: the left stick in VR. @param {number} delta */
   adjustScale(delta) {
     if (!this.isOpen) return;
     this.settings.readScale = clamp(this.settings.readScale * (1 + delta), READ.minScale, READ.maxScale);
@@ -883,7 +955,7 @@ export class Book {
     this._saveIn = 0.4;
   }
 
-  /** A grip squeezed in VR: the book moves with that controller (object) until it is let go. */
+  /** A grip squeezed in VR: the book moves with that controller (object) until it is let go. @param {THREE.Object3D} object */
   grab(object) {
     if (!this.isOpen) return;
     object.updateMatrixWorld(true);
@@ -891,6 +963,7 @@ export class Book {
     this._grabOffset.copy(object.matrixWorld).invert().multiply(this.group.matrixWorld);
   }
 
+  /** A grip let go: if it was moving the book, the book stays where it is. @param {THREE.Object3D} object */
   release(object) {
     if (this._grabbed === object) this._grabbed = null;
   }
@@ -904,7 +977,7 @@ export class Book {
 
   // ── Links and Back ─────────────────────────────────────────────────────────
 
-  /** The contents (the panel's): to the start of part `section`, with a turn. */
+  /** The contents (the panel's): to the start of part `section`, with a turn. @param {number} section */
   goTo(section) {
     if (!this.isOpen) return;
     this.toggleContents(false);
@@ -912,10 +985,10 @@ export class Book {
     if (i >= 0) this._jumpTo(i);
   }
 
-  /** A contents entry on the page: there, where one was going on the trail, for Back. */
+  /** A contents entry on the page: there, where one was going on the trail, for Back. @param {number} section */
   followLink(section) {
     if (!this.isOpen) return;
-    this.trail.push(this.place);
+    this.trail.push(/** @type {At} */ (this.place)); // open: a place
     if (this.trail.length > TRAIL) {
       this.trail.shift();
       this._trailBase++;
@@ -929,13 +1002,14 @@ export class Book {
   goBack() {
     if (!this.isOpen || !this.trail.length) return;
     if (this.history?.back()) return; // its popstate comes back as backTo
-    this._jumpTo(pageAt(this.pages, this.trail.pop()));
+    this._jumpTo(pageAt(this.pages, /** @type {At} */ (this.trail.pop()))); // it has one (above)
     this._updateToolbar();
   }
 
   /**
    * Back to where the trail was `depth` links deep (the browser's Back: back-history.js); false
    * when it has no such place (the book was closed meanwhile).
+   * @param {number} depth
    */
   backTo(depth) {
     const i = depth - this._trailBase;
@@ -960,12 +1034,12 @@ export class Book {
     return false;
   }
 
-  /** The slider: that far into the book, with a turn. */
+  /** The slider: that far into the book, with a turn. @param {number} v */
   jumpToProgress(v) {
     if (this.isOpen) this._jumpTo(pageAtProgress(this.pages, v));
   }
 
-  /** Whether the pages open hold a place of the book (pages.js `at`: [section, block, word]). */
+  /** Whether the pages open hold a place of the book (pages.js `at`: [section, block, word]). @param {At} at */
   showsPlace(at) {
     return this.readingPages().includes(pageAt(this.pages, at));
   }
@@ -973,6 +1047,8 @@ export class Book {
   /**
    * To the page of a place (the text view's): with a turn, or at once (inPlace: the text view
    * covers the book), unless the pages open show it already. Whether it moved.
+   * @param {At} at
+   * @param {{ inPlace?: boolean }} [o]
    */
   jumpToPlace(at, { inPlace = false } = {}) {
     if (!this.isOpen || this.showsPlace(at)) return false;
@@ -990,6 +1066,13 @@ export class Book {
    * 'page', side (-1 the left page, 1 the right, as one turns back or on), page (its index, -1
    * inside a cover), link (a contents entry there, or null) }, or null. A page at a time, the page
    * shown: its left half back, right on. The same object each time.
+   * @param {number} ox
+   * @param {number} oy
+   * @param {number} oz
+   * @param {number} dx
+   * @param {number} dy
+   * @param {number} dz
+   * @returns {BookHit | null}
    */
   pick(ox, oy, oz, dx, dy, dz) {
     if (!this.isOpen) return null;
@@ -1033,7 +1116,18 @@ export class Book {
     return best < Infinity ? out : null;
   }
 
-  /** The ray against one of its panels: nearer than `best`, it is the pick's. */
+  /**
+   * The ray against one of its panels: nearer than `best`, it is the pick's. How far the nearest
+   * hit is now.
+   * @param {Panel} panel
+   * @param {number} ox
+   * @param {number} oy
+   * @param {number} oz
+   * @param {number} dx
+   * @param {number} dy
+   * @param {number} dz
+   * @param {number} best
+   */
   _pickPanel(panel, ox, oy, oz, dx, dy, dz, best) {
     const mesh = panel.mesh;
     this._inverse.copy(mesh.matrixWorld).invert();
@@ -1062,30 +1156,41 @@ export class Book {
   /**
    * What is pointed at now (a pick's fields, or null): its panel's button lights, or a contents
    * entry gets its band. Called every frame; nothing is redrawn unless what is pointed at changed.
+   * @param {BookHit | null} hit
    */
   setHover(hit) {
     const ui = hit && hit.kind === 'bookui' ? hit.panel : null;
-    this._hoverPanel(this.toolbar, 'toolbar', ui === this.toolbar, hit);
-    this._hoverPanel(this.contents, 'contents', ui === this.contents, hit);
+    this._hoverPanel(this.toolbar, 'toolbar', ui === this.toolbar ? hit : null);
+    this._hoverPanel(this.contents, 'contents', ui === this.contents ? hit : null);
     const link = hit && hit.kind === 'page' ? hit.link : null;
-    this._markLink(link ? hit.page : -1, link);
+    this._markLink(hit && link ? hit.page : -1, link);
   }
 
-  _hoverPanel(panel, key, on, hit) {
-    if (on) panel.pointerMove(hit.u, hit.v);
+  /**
+   * One of its panels pointed at (hit, on it) or not (null): what is there lights, or nothing.
+   * @param {Panel} panel
+   * @param {'toolbar' | 'contents'} key
+   * @param {BookHit | null} hit
+   */
+  _hoverPanel(panel, key, hit) {
+    if (hit) panel.pointerMove(hit.u, hit.v);
     else if (this._pointerOn[key]) panel.pointerLeave();
-    this._pointerOn[key] = on;
+    this._pointerOn[key] = !!hit;
   }
 
-  /** Uses what a pick is on: a button or entry of a panel, a contents entry on the page, or turns the page. */
+  /** Uses what a pick is on: a button or entry of a panel, a contents entry on the page, or turns the page. @param {BookHit} hit */
   press(hit) {
     if (!this.isOpen) return;
-    if (hit.kind === 'bookui') hit.panel.click(hit.u, hit.v);
+    if (hit.kind === 'bookui') /** @type {Panel} */ (hit.panel).click(hit.u, hit.v); // a panel's hit has its panel
     else if (hit.link) this.followLink(hit.link.section);
     else this.turn(hit.side);
   }
 
-  /** The band over a contents entry (link, on page i), or none. */
+  /**
+   * The band over a contents entry (link, on page i), or none.
+   * @param {number} i
+   * @param {Link | null} link
+   */
   _markLink(i, link) {
     const m = this._marked;
     if (m.page === i && m.link === link) return;
@@ -1109,6 +1214,11 @@ export class Book {
     this.mark.geometry.computeBoundingSphere();
   }
 
+  /**
+   * Every frame: the settings stored once they rest, and while it is open, moved with a grip, a
+   * turn and a slide under way, its panels drawn again if they changed.
+   * @param {number} dt seconds since the last
+   */
   update(dt) {
     if (this._saveIn > 0 && (this._saveIn -= dt) <= 0) this.onSettings();
     if (!this.isOpen) return;

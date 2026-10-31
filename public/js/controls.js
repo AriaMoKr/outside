@@ -41,7 +41,7 @@ import { GARDEN, SEAT, castRay, clampWalk, groundAt, panelButtonAt, route } from
  * open book's: the page's side (-1 left, 1 right), the panel (its toolbar or contents) and what can
  * be used there, the page's index and a contents entry on it; off the book, panel, el and link are
  * null.
- * @typedef {import('common/controls.js').Hit & { u: number, v: number, side: number, panel: import('./canvas-panel.js').Panel | null, el: object | null, page: number, link: { section: number } | null }} GardenHit
+ * @typedef {import('common/controls.js').Hit & { u: number, v: number, side: number, panel: import('./canvas-panel.js').Panel | null, el: import('./canvas-panel.js').Control | null, page: number, link: import('./pages.js').Link | null }} GardenHit
  */
 /** @typedef {import('common/controls.js').How} How */
 /** @typedef {import('common/controls.js').Hand<GardenHit>} Hand */
