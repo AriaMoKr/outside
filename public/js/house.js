@@ -13,6 +13,9 @@ import { ControlPanel } from './panel.js';
 import { viewParams } from 'common/door.js';
 import { openingGeometry, placePortal, portalMaterial, setView } from 'common/portal.js';
 
+/** @typedef {import('./bake.js').RGB} RGB */
+
+/** A CSS colour ('#rrggbb') as linear RGB. @type {(hex: string) => RGB} */
 const lin = (hex) => {
   const c = new THREE.Color(hex);
   return [c.r, c.g, c.b];
@@ -39,11 +42,19 @@ export function buildHouse(L, { names, glow, trim, lit, lightColor, anisotropy =
   group.name = 'house';
   const dw = L.door.width, dh = L.door.height, R = L.door.reveal;
   const W = HOUSE.window;
+  /**
+   * A box of the trim from min to max, in one colour; `skip` names faces left out, as Builder's.
+   * @param {number[]} min
+   * @param {number[]} max
+   * @param {number[]} albedo
+   * @param {string[]} [skip]
+   */
   const box = (min, max, albedo, skip) => trim.box(min, max, { albedo, skip });
 
   // The brick face, round the door and the windows.
   const openings = [{ x0: -dw / 2, x1: dw / 2, y0: BOTTOM, y1: dh }, ...HOUSE.windows.map((x) => ({ x0: x - W.width / 2, x1: x + W.width / 2, y0: W.sill, y1: W.top }))];
   const bricks = new Builder();
+  /** A point's place on the brick texture (it repeats every BRICK_TILE m). @param {number[]} p */
   const brickUv = (p) => [p[0] / BRICK_TILE, p[1] / BRICK_TILE];
   const xs = [...new Set([X0, X1, ...openings.flatMap((o) => [o.x0, o.x1])])].sort((a, b) => a - b);
   for (let i = 0; i + 1 < xs.length; i++) {
@@ -117,7 +128,17 @@ export function buildHouse(L, { names, glow, trim, lit, lightColor, anisotropy =
   box([-dw / 2 - 0.36, dh + 0.3, -0.24], [dw / 2 + 0.36, dh + 0.36, 0], STONE);
 
   // The sign over it and the plaque beside it, in the hallway's enamel; backed with dark wood.
+  /** @type {THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[]} */
   const signs = [];
+  /**
+   * A sign on the wall facing the garden, lit as the wall is: w × h metres, centred at (x, y).
+   * @param {THREE.Texture} map
+   * @param {number} w
+   * @param {number} h
+   * @param {number} x
+   * @param {number} y
+   * @param {string} name
+   */
   const sign = (map, w, h, x, y, name) => {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map, color: lightColor([x, y, -0.02], [0, 0, -1]) }));
     mesh.position.set(x, y, -0.016);
@@ -152,6 +173,7 @@ export function buildHouse(L, { names, glow, trim, lit, lightColor, anisotropy =
   /**
    * Shows a view through the doorway: the first of `sources` ({ views: views.json's address, id })
    * that can be read and checked, in place of the glow and the name. Resolves to which, or null.
+   * @param {{ views: string, id: string }[]} sources
    */
   async function loadView(sources) {
     for (const source of sources) {
@@ -176,7 +198,13 @@ export function buildHouse(L, { names, glow, trim, lit, lightColor, anisotropy =
 
   return {
     group, portal, panel, signs, loadView,
-    /** Per frame: the veil drifts, and the doorway brightens when pointed at or stood near. */
+    /**
+     * Per frame: the veil drifts, and the doorway brightens when pointed at or stood near.
+     * @param {number} time seconds, the veil's
+     * @param {number} dt seconds since the last frame
+     * @param {THREE.Vector3} head where the viewer's head is
+     * @param {boolean} hover whether the doorway is pointed at
+     */
     update(time, dt, head, hover) {
       const near = head.z > -1.8 && Math.abs(head.x) < 1.6;
       const target = hover ? 1 : near ? 0.45 : 0;
