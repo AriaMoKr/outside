@@ -275,14 +275,12 @@ npm run types   # tsc's checks alone
 ```
 
 `npm test` type-checks `public/js/` with TypeScript, from the modules' JSDoc (`tsconfig.json`:
-`allowJs`, `checkJs`, `noEmit`), against three.js's types and common's and the shared session's.
-Nothing is built: the page is served as it is, and the import map stays. What TypeScript's DOM
-library leaves out is in `types/globals.d.ts`. `strict` came a file at a time:
-`tsconfig.strict.json` checks the files that pass it, by now every one in `public/js/` (named one
-by one: a new file joins its `include` once it passes), and `npm test` runs it too. `tools/` and
-`test/`, which run in Node, have `tsconfig.node.json`: strict from the start, with Node's types
-(`@types/node`) as well; by now every one of them passes it (`types/node/` has what `tools/` uses
-of common's tools, which come with no types).
+`allowJs`, `checkJs`, `noEmit`, `strict`), against three.js's types and common's and the shared
+session's. Nothing is built: the page is served as it is, and the import map stays. What
+TypeScript's DOM library leaves out is in `types/globals.d.ts`. `strict` came a file at a time,
+until every file passed it. `tools/` and `test/`, which run in Node, have `tsconfig.node.json`:
+the same check with Node's types (`@types/node`) as well (`types/node/` has what `tools/` uses of
+common's tools, which come with no types).
 
 `public/` is the whole site: any static server can serve it once `npm install` has filled
 `public/vendor/`. `?xr=emulate` installs Meta's IWER emulator (a virtual Quest 3). For a Quest over

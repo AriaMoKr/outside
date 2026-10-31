@@ -1,12 +1,13 @@
 {
-  // The page's modules checked as they are served, from their JSDoc: nothing is built or emitted,
-  // and the import map stays. test/types.test.js runs it (npm test, so the Pages workflow too);
-  // npm run types runs it alone, then tsconfig.strict.json and tsconfig.node.json (tools/ and
-  // test/, in Node). Not strict: that comes a file at a time, in tsconfig.strict.json.
+  // The page's modules checked as they are served, from their JSDoc, with `strict` on: nothing is
+  // built or emitted, and the import map stays. test/types.test.js runs it (npm test, so the Pages
+  // workflow too); npm run types runs it alone, then tsconfig.node.json (tools/ and test/, which
+  // run in Node).
   "compilerOptions": {
     "allowJs": true,
     "checkJs": true,
     "noEmit": true,
+    "strict": true,
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",

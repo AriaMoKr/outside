@@ -1,13 +1,11 @@
 {
-  // tools/ and test/, which run in Node: strict from the start, and a file at a time as
-  // tsconfig.strict.json does public/js/, with Node's types (@types/node, of Node 22, the oldest
-  // engines allows) as well as tsconfig.json's DOM (the tests run public/js/'s modules, the text
-  // view's on a fake DOM). A file joins `include` when a change makes it pass; what it imports from
-  // public/js/ is checked strictly with it. test/types.test.js runs it too.
+  // tools/ and test/, which run in Node, checked as strictly as tsconfig.json checks public/js/,
+  // with Node's types (@types/node, of Node 22, the oldest engines allows) as well as
+  // tsconfig.json's DOM (the tests run public/js/'s modules, the text view's on a fake DOM).
+  // types/node/ has what tools/ uses of common's tools. test/types.test.js runs it too.
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "strict": true,
     "types": ["node"]
   },
-  "include": ["test/garden.test.js", "test/helpers/fake-dom.js", "test/lite.test.js", "test/pages.test.js", "test/reader.test.js", "test/remote.test.js", "test/site.test.js", "test/text-view.test.js", "test/together.test.js", "test/types.test.js", "test/water.test.js", "test/way.test.js", "tools/hallway-view.mjs", "tools/preview.mjs", "tools/serve.mjs", "types/*.d.ts", "types/node/*.d.ts"]
+  "include": ["test/**/*.js", "tools/*.mjs", "types/*.d.ts", "types/node/*.d.ts"]
 }
