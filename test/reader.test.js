@@ -43,7 +43,7 @@ test('the themes are vrlbry\'s, and the text view (style.css) has the same colou
   assert.deepEqual(Object.keys(THEMES), THEME_ORDER);
   const css = readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
   for (const name of THEME_ORDER) {
-    const rule = name === 'paper' ? css.match(/\.tv \{([^}]*)\}/)[1] : css.match(new RegExp(`\\.tv\\[data-theme="${name}"\\] \\{([^}]*)\\}`))[1];
+    const rule = name === 'paper' ? css.match(/\.tv-view \{([^}]*)\}/)[1] : css.match(new RegExp(`\\.tv-view\\[data-theme="${name}"\\] \\{([^}]*)\\}`))[1];
     const v = (k) => rule.match(new RegExp(`--tv-${k}: (#[0-9a-f]{6})`))[1];
     const t = THEMES[name];
     assert.deepEqual([v('paper'), v('ink'), v('link'), v('rule')], [t.paper, t.ink, t.link, t.rule], name);

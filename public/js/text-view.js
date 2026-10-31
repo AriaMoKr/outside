@@ -182,7 +182,7 @@ export class TextView {
     const doc = root.ownerDocument;
     this.doc = doc;
     const el = doc.createElement('article');
-    el.className = 'tv';
+    el.className = 'tv-view'; // as vrlbry's: `tv` is TV mode's, on <html> (main.js)
     el.hidden = true;
     el.tabIndex = -1; // a click on its text keeps the keys here (controls.js leaves them alone: data-own-keys)
     el.setAttribute('aria-labelledby', 'tv-title');

@@ -1,9 +1,10 @@
 // The text view (public/js/text-view.js, vrlbry's): each part of the book as DOM nodes (headings,
 // author and source, paragraphs, stanzas, the contents as links), the place at the top of the
 // view, and the places shared with the 3D book: every page's first words are where the view finds
-// them, at every text size.
+// them, at every text size. Its class is its own, tv-view, not TV mode's tv.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { fakeDocument, inner } from './helpers/fake-dom.js';
 import { FONT_STEPS, SECTION, paginate } from '../public/js/pages.js';
 import { firstWordBelow, partCount, partOf, partSections, renderPart, topBlock, wordStarts } from '../public/js/text-view.js';
@@ -84,6 +85,17 @@ test('every page\'s first words are where the view finds the page\'s place, at e
       assert.equal(node.data.slice(offset).split(/\s/)[0], first.text.split(' ')[0], `at ${scale}: ${page.at}`);
     }
   }
+});
+
+test('the view\'s rules are on its own class, tv-view: tv is TV mode\'s, on <html>, and no rule is on it alone', () => {
+  const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
+  assert.match(read('../public/js/text-view.js'), /el\.className = 'tv-view'/);
+  assert.match(read('../public/js/main.js'), /document\.documentElement\.classList\.toggle\('tv', tv\)/);
+  // Each use of the class tv (not tv-…) in the page's style, comments aside, and what it is on.
+  const css = read('../public/css/style.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const on = [...css.matchAll(/([\w-]*)\.tv(?![\w-])/g)].map((m) => m[1]);
+  assert.ok(on.length > 0, 'the 10-foot view has its rules');
+  assert.deepEqual([...new Set(on)], ['html'], 'a rule on .tv alone reaches the whole TV page, as the text view\'s did');
 });
 
 test('the place at the top of the view: the first block reaching below it, and the first word in sight', () => {
