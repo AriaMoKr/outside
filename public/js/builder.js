@@ -4,31 +4,43 @@
 // draw call). The hallway's Builder (quad, box) with what a garden needs added.
 import * as THREE from 'three';
 
+/** @type {(a: number[], b: number[]) => number[]} */
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+/** @type {(a: number[], b: number[]) => number} */
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+/** @type {(a: number[]) => number} */
 const length = (a) => Math.hypot(a[0], a[1], a[2]);
+/** @type {(a: number[]) => number[]} */
 const norm = (a) => {
   const l = length(a) || 1;
   return [a[0] / l, a[1] / l, a[2] / l];
 };
+/** @type {(a: number[], b: number[], s?: number) => number[]} */
 const add = (a, b, s = 1) => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s];
 
-/** An icosphere's unit directions and triangles, by subdivision level (cached). */
+/** An icosphere: its vertices' unit directions, and its triangles, three vertices' indices each. @typedef {{ verts: number[][], faces: number[][] }} Ico */
+/** An icosphere's unit directions and triangles, by subdivision level (cached). @type {Map<number, Ico>} */
 const ICO = new Map();
+/**
+ * @param {number} detail
+ * @returns {Ico}
+ */
 function icosphere(detail) {
-  if (ICO.has(detail)) return ICO.get(detail);
+  if (ICO.has(detail)) return /** @type {Ico} */ (ICO.get(detail)); // made before
   const t = (1 + Math.sqrt(5)) / 2;
   let verts = [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]].map(norm);
   let faces = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8], [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]];
   for (let d = 0; d < detail; d++) {
+    /** Each edge's midpoint, by its ends ('a,b'). @type {Map<string, number>} */
     const mid = new Map();
+    /** @type {(a: number, b: number) => number} */
     const midpoint = (a, b) => {
       const key = a < b ? `${a},${b}` : `${b},${a}`;
       if (!mid.has(key)) {
         mid.set(key, verts.length);
         verts.push(norm(add(verts[a], verts[b])));
       }
-      return mid.get(key);
+      return /** @type {number} */ (mid.get(key)); // made above if it was not
     };
     const next = [];
     for (const [a, b, c] of faces) {
@@ -44,13 +56,20 @@ function icosphere(detail) {
 
 export class Builder {
   constructor() {
+    /** Its vertices' positions, x, y, z each. @type {number[]} */
     this.positions = [];
+    /** Their normals, x, y, z each. @type {number[]} */
     this.normals = [];
+    /** Their texture coordinates, u, v each. @type {number[]} */
     this.uvs = [];
+    /** Their albedo, r, g, b each. @type {number[]} */
     this.albedo = [];
+    /** Its triangles, three vertices' indices each (counter-clockwise from the front). @type {number[]} */
     this.indices = [];
-    this.extra = {}; // further attributes by name: { size, values }
-    this.colors = null; // filled by bake()
+    /** Further attributes by name (tag's): `size` floats a vertex, in `values`. @type {Record<string, { size: number, values: number[] }>} */
+    this.extra = {};
+    /** Its vertices' colours once lit (as bake.js's bake() fills them), drawn instead of the albedo; null until then. @type {Float32Array | null} */
+    this.colors = null;
     /** Its colours lit as its vertices were added (plants.js: the swaying grass and strands), or null. @type {number[] | null} */
     this.lit = null;
   }
@@ -59,7 +78,13 @@ export class Builder {
     return this.positions.length / 3;
   }
 
-  /** Adds a vertex; returns its index. */
+  /**
+   * Adds a vertex; returns its index.
+   * @param {number[]} p
+   * @param {number[]} n
+   * @param {number[]} [uv]
+   * @param {number[]} [albedo]
+   */
   vertex(p, n, uv = [0, 0], albedo = [1, 1, 1]) {
     this.positions.push(p[0], p[1], p[2]);
     this.normals.push(n[0], n[1], n[2]);
@@ -68,14 +93,22 @@ export class Builder {
     return this.count - 1;
   }
 
-  /** Sets a further attribute (`name`, `size` floats each) for every vertex added since `from`. */
+  /**
+   * Sets a further attribute (`name`, `size` floats each) for every vertex added since `from`:
+   * `value`, a number when `size` is 1, else `size` of them, or a function of the vertex's index
+   * giving that.
+   * @param {string} name
+   * @param {number} size
+   * @param {number} from
+   * @param {number | number[] | ((i: number) => number | number[])} value
+   */
   tag(name, size, from, value) {
     const a = (this.extra[name] ??= { size, values: [] });
     while (a.values.length < from * size) a.values.push(...new Array(size).fill(0));
     for (let i = from; i < this.count; i++) {
       const v = typeof value === 'function' ? value(i) : value;
-      if (size === 1) a.values[i] = v;
-      else for (let k = 0; k < size; k++) a.values[i * size + k] = v[k];
+      if (size === 1) a.values[i] = /** @type {number} */ (v); // size 1: a number
+      else for (let k = 0; k < size; k++) a.values[i * size + k] = /** @type {number[]} */ (v)[k]; // size of them
     }
     return this;
   }
@@ -150,13 +183,15 @@ export class Builder {
    * @param {{ albedo?: number[] | ((axis: number[]) => number[]), skip?: string[], jitter?: ((p: number[]) => number[]) | null }} [options]
    */
   cuboid(c, a, b, h, { albedo = [1, 1, 1], skip = [], jitter = null } = {}) {
+    /** A corner, by its side (-1 or 1) along a, b and h. @type {(sa: number, sb: number, sh: number) => number[]} */
     const corner = (sa, sb, sh) => {
       const p = [c[0] + a[0] * sa + b[0] * sb + h[0] * sh, c[1] + a[1] * sa + b[1] * sb + h[1] * sh, c[2] + a[2] * sa + b[2] * sb + h[2] * sh];
       return jitter ? jitter(p) : p;
     };
-    // The eight corners, so faces share any jitter.
+    /** The eight corners, by their sides ('1-11'), so faces share any jitter. @type {Record<string, number[]>} */
     const k = {};
     for (const sa of [-1, 1]) for (const sb of [-1, 1]) for (const sh of [-1, 1]) k[`${sa}${sb}${sh}`] = corner(sa, sb, sh);
+    /** A face unless skipped, its corners in order round it, its front toward n. @type {(name: string, n: number[], p0: number[], p1: number[], p2: number[], p3: number[]) => void} */
     const face = (name, n, p0, p1, p2, p3) => {
       if (skip.includes(name)) return;
       const nn = norm(cross([p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]], [p3[0] - p0[0], p3[1] - p0[1], p3[2] - p0[2]]));
@@ -167,6 +202,7 @@ export class Builder {
       if (flip) this.indices.push(base, base + 2, base + 1, base, base + 3, base + 2);
       else this.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
     };
+    /** @type {(v: number[]) => number[]} */
     const neg = (v) => [-v[0], -v[1], -v[2]];
     face('+a', a, k['1-1-1'], k['11-1'], k['111'], k['1-11']);
     face('-a', neg(a), k['-1-1-1'], k['-1-11'], k['-111'], k['-11-1']);
@@ -269,7 +305,14 @@ export class Builder {
     return this;
   }
 
-  /** One triangle (a, b, c counter-clockwise from its front), with a normal of its own or given. */
+  /**
+   * One triangle (a, b, c counter-clockwise from its front), with a normal of its own or given;
+   * `albedos` gives each corner its own.
+   * @param {number[]} a
+   * @param {number[]} b
+   * @param {number[]} c
+   * @param {{ normal?: number[] | null, albedo?: number[], albedos?: number[][] | null }} [options]
+   */
   tri(a, b, c, { normal = null, albedo = [1, 1, 1], albedos = null } = {}) {
     const n = normal || norm(cross([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]]));
     const base = this.count;
@@ -280,7 +323,10 @@ export class Builder {
     return this;
   }
 
-  /** Appends another builder's vertices and triangles. */
+  /**
+   * Appends another builder's vertices and triangles.
+   * @param {Builder} other
+   */
   append(other) {
     const base = this.count;
     this.positions.push(...other.positions);
