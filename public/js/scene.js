@@ -92,7 +92,7 @@ void main() {
 `;
 
 /**
- * @param {object} L the garden's layout (garden.js layoutGarden)
+ * @param {import('./garden.js').Layout} L the garden's layout (garden.js layoutGarden)
  * @param {object} o
  * @param {{ title: string, subtitle: string, sign: string }} o.names what the door back's plaque and sign say
  * @param {string} o.glow its colour

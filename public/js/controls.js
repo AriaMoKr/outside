@@ -469,7 +469,7 @@ export class Controls extends Walking {
       const b = PAD_BOOK[k], i = b[0];
       const on = held(pad, i);
       if (on && !this._padHeld[i] && this.book) {
-        if (b[1] === 'turn') this.onPage(b[2]);
+        if (b[1] === 'turn') this.onPage(/** @type {number} */ (b[2])); // a turn has its side
         else this.onBookAction(b[1], b[2]);
         used = true;
       }

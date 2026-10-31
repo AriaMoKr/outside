@@ -11,13 +11,16 @@
 // widens into the pond and leaves under the left-hand hedge, so it splits the garden in two: the
 // near side, by the house, and the far side, with the bench. The bridge is the way between them.
 
+/** @type {(v: number, lo: number, hi: number) => number} */
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
-/** 0 at a, 1 at b (either way round), smooth in between. */
+/** 0 at a, 1 at b (either way round), smooth in between. @type {(a: number, b: number, v: number) => number} */
 const smooth = (a, b, v) => {
   const t = clamp((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
 };
+/** @type {(v: number, c: number, s: number) => number} */
 const bump = (v, c, s) => Math.exp(-(((v - c) / s) ** 2));
+/** @type {(v: number, k: number) => number} */
 const softplus = (v, k) => (v / k > 30 ? v : k * Math.log1p(Math.exp(v / k)));
 
 export const GARDEN = {
@@ -62,7 +65,11 @@ export const PANEL_BUTTONS = [
   ['session', 32, 652, 480, 706],
 ];
 
-/** The button at (u, v) on the panel (0…1 from its bottom left, as castRay reports), or null. */
+/**
+ * The button at (u, v) on the panel (0…1 from its bottom left, as castRay reports), or null.
+ * @param {number} u
+ * @param {number} v
+ */
 export function panelButtonAt(u, v) {
   const x = u * PANEL_PX.width, y = (1 - v) * PANEL_PX.height;
   for (const b of PANEL_BUTTONS) {
@@ -125,7 +132,10 @@ export const STREAM_X = [STREAM[0][0], STREAM[STREAM.length - 1][0]];
 /** The pond's water level; the stream comes down to it and goes on down from it. */
 export const POND_LEVEL = -0.62;
 
-/** The stream's middle line at x: writes { z, dz } (dz its slope, dz/dx) into out. */
+/**
+ * The stream's middle line at x: writes { z, dz } (dz its slope, dz/dx) into out.
+ * @param {number} x
+ */
 export function streamAt(x, out = { z: 0, dz: 0 }) {
   const P = STREAM, n = P.length;
   x = clamp(x, P[0][0], P[n - 1][0]);
@@ -139,20 +149,30 @@ export function streamAt(x, out = { z: 0, dz: 0 }) {
   return out;
 }
 
-/** How far the water reaches from the middle line toward the house (near) and away from it (far), at x. */
+/**
+ * How far the water reaches from the middle line toward the house (near) and away from it (far), at x.
+ * @param {number} x
+ */
 export function nearWidth(x) {
   const pond = bump(x, -4.0, 1.9);
   return 0.56 + 0.06 * Math.sin(x * 2.3 + 1) + pond * (1.75 + 0.18 * Math.sin(x * 1.9 + 0.4));
 }
+/** @param {number} x */
 export function farWidth(x) {
   const pond = bump(x, -4.3, 2.1);
   return 0.6 + 0.05 * Math.sin(x * 1.7 + 2) + pond * (2.0 + 0.2 * Math.sin(x * 2.6 + 1.3));
 }
-/** The water's surface at x: level in the pond, rising upstream (+x), falling where it leaves (-x). */
+/**
+ * The water's surface at x: level in the pond, rising upstream (+x), falling where it leaves (-x).
+ * @param {number} x
+ */
 export function waterLevel(x) {
   return POND_LEVEL + 0.03 * softplus(x + 1.4, 0.6) - 0.03 * softplus(-6.6 - x, 0.6);
 }
-/** How deep it is in the middle at x: a stream, and the pond deeper. */
+/**
+ * How deep it is in the middle at x: a stream, and the pond deeper.
+ * @param {number} x
+ */
 export function waterDepth(x) {
   return 0.26 + 0.5 * bump(x, -4.1, 1.8);
 }
@@ -165,6 +185,8 @@ const _s = { z: 0, dz: 0 };
  * The water near (x, z): `across`, the distance from the stream's middle line (+ toward the house),
  * `width` its reach on that side, `shore` how far (x, z) is beyond the water's edge (- in the
  * water), its `level` and middle `depth` there. Writes into out.
+ * @param {number} x
+ * @param {number} z
  */
 export function waterAt(x, z, out = { across: 0, width: 0, shore: 0, level: 0, depth: 0 }) {
   streamAt(x, _s);
@@ -177,14 +199,22 @@ export function waterAt(x, z, out = { across: 0, width: 0, shore: 0, level: 0, d
   return out;
 }
 
-/** Which side of the water (x, z) is on: 1 the house's, -1 the bench's. */
+/**
+ * Which side of the water (x, z) is on: 1 the house's, -1 the bench's.
+ * @param {number} x
+ * @param {number} z
+ */
 export function sideOf(x, z) {
   return waterAt(x, z, _w).across >= 0 ? 1 : -1;
 }
 
 // ── The ground ───────────────────────────────────────────────────────────────
 
-/** The lawn before the water is cut into it: falling from the house to the stream, rising to the far wall, a little rolling. */
+/**
+ * The lawn before the water is cut into it: falling from the house to the stream, rising to the far wall, a little rolling.
+ * @param {number} x
+ * @param {number} z
+ */
 function lawn(x, z) {
   const fall = -0.3 * smooth(-1.2, -5.6, z);
   const rise = 0.52 * smooth(-9, -17.5, z);
@@ -197,7 +227,11 @@ function lawn(x, z) {
 const _w = { across: 0, width: 0, shore: 0, level: 0, depth: 0 };
 const BENCH_GROUND = lawn(BENCH.x, BENCH.z);
 
-/** The ground's height at (x, z), the stream's bed and banks cut into the lawn (the bridge not included). */
+/**
+ * The ground's height at (x, z), the stream's bed and banks cut into the lawn (the bridge not included).
+ * @param {number} x
+ * @param {number} z
+ */
 export function terrain(x, z) {
   const w = waterAt(x, z, _w);
   let h;
@@ -238,7 +272,11 @@ export const TRAIL_LINE = (() => {
   return pts;
 })();
 
-/** Distance from (x, z) to the trail's middle line. */
+/**
+ * Distance from (x, z) to the trail's middle line.
+ * @param {number} x
+ * @param {number} z
+ */
 export function trailDistance(x, z) {
   let best = Infinity;
   const P = TRAIL_LINE;
@@ -253,7 +291,11 @@ export function trailDistance(x, z) {
   return Math.sqrt(best);
 }
 
-/** How much of the ground at (x, z) is trail (1) rather than grass (0): the trail and the bench's gravel. */
+/**
+ * How much of the ground at (x, z) is trail (1) rather than grass (0): the trail and the bench's gravel.
+ * @param {number} x
+ * @param {number} z
+ */
 export function trailWeight(x, z) {
   const wobble = 0.05 * Math.sin(x * 3.1 + z * 1.7) + 0.035 * Math.sin(x * 7.3 - z * 5.9);
   const t = 1 - smooth(TRAIL_WIDTH / 2 - 0.12, TRAIL_WIDTH / 2 + 0.12, trailDistance(x, z) + wobble);
@@ -283,7 +325,13 @@ function sampleGrid() {
   return { ...GRID, nx, nz, h, shore, maxH };
 }
 
-/** Bilinear sample of one of the grid's arrays at (x, z), or NaN off it. */
+/**
+ * Bilinear sample of one of the grid's arrays at (x, z), or NaN off it.
+ * @param {Layout['grid']} G
+ * @param {Float32Array} a
+ * @param {number} x
+ * @param {number} z
+ */
 function sample(G, a, x, z) {
   const fx = (x - G.x0) / G.step, fz = (G.z0 - z) / G.step;
   if (fx < 0 || fz < 0 || fx > G.nx - 1 || fz > G.nz - 1) return NaN;
@@ -292,7 +340,14 @@ function sample(G, a, x, z) {
   return (a[k] * (1 - u) + a[k + 1] * u) * (1 - v) + (a[k + G.nx] * (1 - u) + a[k + G.nx + 1] * u) * v;
 }
 
-/** A point of a placed thing's frame ({ x, z, yaw }) in the world: writes { x, z } into out. */
+/** @typedef {{ x: number, z: number, yaw: number }} Place something placed, with a frame of its own: r to its right, f in front of it */
+
+/**
+ * A point of a placed thing's frame ({ x, z, yaw }) in the world: writes { x, z } into out.
+ * @param {Place} place
+ * @param {number} r
+ * @param {number} f
+ */
 export function toWorld(place, r, f, out = { x: 0, z: 0 }) {
   const s = Math.sin(place.yaw), c = Math.cos(place.yaw);
   out.x = place.x + r * c - f * s;
@@ -300,7 +355,12 @@ export function toWorld(place, r, f, out = { x: 0, z: 0 }) {
   return out;
 }
 
-/** (x, z) in a placed thing's frame: writes { r, f } into out. */
+/**
+ * (x, z) in a placed thing's frame: writes { r, f } into out.
+ * @param {Place} place
+ * @param {number} x
+ * @param {number} z
+ */
 export function toLocal(place, x, z, out = { r: 0, f: 0 }) {
   const s = Math.sin(place.yaw), c = Math.cos(place.yaw);
   const dx = x - place.x, dz = z - place.z;
@@ -331,33 +391,52 @@ export function layoutGarden({ doorWidth = DOOR.width, doorHeight = DOOR.height 
     benchFront: { x: front.x, z: front.z },
     trees: TREES,
     spawn: { x: 0, z: -0.6, yaw: 0 },
-    walk: null,
+    /** Which of the grid's points a head may walk over (1), for finding the way: walkGrid's, below. */
+    walk: new Uint8Array(grid.nx * grid.nz),
   };
-  L.walk = walkGrid(L);
+  walkGrid(L);
   return L;
 }
 
-/** Where someone coming out of the door stands: dx to the right of its middle (within its jambs), turned by yaw. */
+/** @typedef {ReturnType<typeof layoutGarden>} Layout the garden's layout (layoutGarden) */
+
+/**
+ * Where someone coming out of the door stands: dx to the right of its middle (within its jambs), turned by yaw.
+ * @param {Layout} L
+ */
 export function doorSpawn(L, dx = 0, yaw = 0) {
   const jamb = L.door.width / 2 - 0.25;
   return { x: clamp(dx, -jamb, jamb), z: L.spawn.z, yaw: clamp(yaw, -Math.PI / 2, Math.PI / 2) };
 }
 
-/** Whether (x, z) is on the bridge's deck (between its ends, across its whole width). */
+/**
+ * Whether (x, z) is on the bridge's deck (between its ends, across its whole width).
+ * @param {number} x
+ * @param {number} z
+ */
 export function onDeck(x, z) {
   return Math.abs(x - BRIDGE.x) <= BRIDGE.width / 2 && z <= BRIDGE.zA && z >= BRIDGE.zB;
 }
 
-/** How far along the bridge z is, 0 at its near end, 1 at its far end. */
+/** How far along the bridge z is, 0 at its near end, 1 at its far end. @type {(z: number) => number} */
 const along = (z) => (BRIDGE.zA - z) / (BRIDGE.zA - BRIDGE.zB);
 
-/** The top of the deck at z (on it). */
+/**
+ * The top of the deck at z (on it).
+ * @param {Layout} L
+ * @param {number} z
+ */
 export function deckHeight(L, z) {
   const t = clamp(along(z), 0, 1);
   return L.deck.hA + (L.deck.hB - L.deck.hA) * t + BRIDGE.rise * Math.sin(Math.PI * t) + BRIDGE.deck;
 }
 
-/** What the viewer stands on at (x, z): the deck, or the ground. */
+/**
+ * What the viewer stands on at (x, z): the deck, or the ground.
+ * @param {Layout} L
+ * @param {number} x
+ * @param {number} z
+ */
 export function groundAt(L, x, z) {
   if (onDeck(x, z)) return deckHeight(L, z);
   const h = sample(L.grid, L.grid.h, x, z);
@@ -368,6 +447,9 @@ export function groundAt(L, x, z) {
  * What is on top at (x, z), for a visitor's ring: the ground, or the water where its surface covers
  * the ground (dry() lets a visitor stand a little into the water's edge, and the surface runs on
  * under the banks).
+ * @param {Layout} L
+ * @param {number} x
+ * @param {number} z
  */
 export function surfaceAt(L, x, z) {
   const y = groundAt(L, x, z);
@@ -375,19 +457,34 @@ export function surfaceAt(L, x, z) {
   return w.shore < WATER_UNDER && w.level > y ? w.level : y;
 }
 
-/** How far (x, z) is beyond the water's edge (- in the water), from the grid where it reaches. */
+/**
+ * How far (x, z) is beyond the water's edge (- in the water), from the grid where it reaches.
+ * @param {Layout} L
+ * @param {number} x
+ * @param {number} z
+ */
 export function shoreAt(L, x, z) {
   const s = sample(L.grid, L.grid.shore, x, z);
   return Number.isNaN(s) ? waterAt(x, z, _w).shore : s;
 }
 
-/** Whether a head may be over (x, z) as far as the water goes: dry ground (or its very edge), or the deck. */
+/**
+ * Whether a head may be over (x, z) as far as the water goes: dry ground (or its very edge), or the deck.
+ * @param {Layout} L
+ * @param {number} x
+ * @param {number} z
+ */
 export function dry(L, x, z) {
   return onDeck(x, z) || shoreAt(L, x, z) > -0.1;
 }
 
 const _l = { r: 0, f: 0 };
-/** The bench's footprint, grown by `grow`, in its frame. */
+/**
+ * The bench's footprint, grown by `grow`, in its frame.
+ * @param {number} x
+ * @param {number} z
+ * @param {number} grow
+ */
 function inBench(x, z, grow) {
   const p = toLocal(BENCH, x, z, _l);
   return Math.abs(p.r) < BENCH.length / 2 + grow && p.f > -BENCH.depth / 2 - 0.05 - grow && p.f < BENCH.depth / 2 + grow;
@@ -397,6 +494,11 @@ function inBench(x, z, grow) {
  * The nearest place to (x, z) a head coming from (fx, fz) may be: inside the hedges, the far wall
  * and the house (the doorway apart, between its jambs), clear of the tree trunks, the bench and
  * the bridge's rails, and out of the water. Writes { x, z } into out.
+ * @param {Layout} L
+ * @param {number} fx
+ * @param {number} fz
+ * @param {number} x
+ * @param {number} z
  */
 export function clampWalk(L, fx, fz, x, z, out = { x: 0, z: 0 }) {
   const m = GARDEN.margin;
@@ -462,12 +564,22 @@ export function clampWalk(L, fx, fz, x, z, out = { x: 0, z: 0 }) {
   return out;
 }
 
-/** Whether a head at (x, z) has gone through the door, back into the hallway. */
+/**
+ * Whether a head at (x, z) has gone through the door, back into the hallway.
+ * @param {Layout} L
+ * @param {number} x
+ * @param {number} z
+ */
 export function doorCrossed(L, x, z) {
   return Math.abs(x) < L.door.width / 2 && z > L.door.threshold;
 }
 
-/** Whether (x, z) is somewhere to stand: in the garden, dry, clear of trunks and the bench; on the deck, between its rails. */
+/**
+ * Whether (x, z) is somewhere to stand: in the garden, dry, clear of trunks and the bench; on the deck, between its rails.
+ * @param {Layout} L
+ * @param {number} x
+ * @param {number} z
+ */
 export function standable(L, x, z) {
   const m = GARDEN.margin;
   if (x < GARDEN.x0 + m || x > GARDEN.x1 - m || z < GARDEN.z1 + m || z > -m) return false;
@@ -482,7 +594,14 @@ export function standable(L, x, z) {
 /** The bridge's ends, a step out onto the land: [x, z]. */
 export const BRIDGE_ENDS = { near: [BRIDGE.x, BRIDGE.zA + 0.35], far: [BRIDGE.x, BRIDGE.zB - 0.35] };
 
-/** Whether a walk straight from a to b keeps out of the water (the deck counts as dry). */
+/**
+ * Whether a walk straight from a to b keeps out of the water (the deck counts as dry).
+ * @param {Layout} L
+ * @param {number} ax
+ * @param {number} az
+ * @param {number} bx
+ * @param {number} bz
+ */
 export function clearPath(L, ax, az, bx, bz) {
   const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 0.2);
   for (let i = 1; i <= n; i++) {
@@ -492,10 +611,17 @@ export function clearPath(L, ax, az, bx, bz) {
   return true;
 }
 
-/** Whether a head may walk over (x, z) (standable: the deck between its rails counts). */
+/** Whether a head may walk over (x, z) (standable: the deck between its rails counts). @type {(L: Layout, x: number, z: number) => boolean} */
 export const walkable = (L, x, z) => standable(L, x, z);
 
-/** Whether a walk straight from a to b is all walkable (its first stretch apart: one may start at an edge). */
+/**
+ * Whether a walk straight from a to b is all walkable (its first stretch apart: one may start at an edge).
+ * @param {Layout} L
+ * @param {number} ax
+ * @param {number} az
+ * @param {number} bx
+ * @param {number} bz
+ */
 function clearWalk(L, ax, az, bx, bz) {
   const length = Math.hypot(bx - ax, bz - az), n = Math.ceil(length / 0.1);
   for (let i = 1; i <= n; i++) {
@@ -506,16 +632,24 @@ function clearWalk(L, ax, az, bx, bz) {
   return true;
 }
 
-/** Which of the grid's points a head may walk over (1), for finding the way. */
+/**
+ * Marks which of the grid's points a head may walk over (1) in L.walk, for finding the way
+ * (walkable reads no L.walk).
+ * @param {Layout} L
+ */
 function walkGrid(L) {
-  const G = L.grid, walk = new Uint8Array(G.nx * G.nz);
+  const G = L.grid, walk = L.walk;
   for (let j = 0; j < G.nz; j++) {
     for (let i = 0; i < G.nx; i++) walk[j * G.nx + i] = walkable(L, G.x0 + i * G.step, G.z0 - j * G.step) ? 1 : 0;
   }
-  return walk;
 }
 
-/** The walkable grid point nearest (x, z), as its index, or -1 when none is within 3 m. */
+/**
+ * The walkable grid point nearest (x, z), as its index, or -1 when none is within 3 m.
+ * @param {Layout} L
+ * @param {number} x
+ * @param {number} z
+ */
 function nearestCell(L, x, z) {
   const G = L.grid;
   const ci = Math.round((x - G.x0) / G.step), cj = Math.round((G.z0 - z) / G.step);
@@ -537,14 +671,20 @@ function nearestCell(L, x, z) {
   return best;
 }
 
-/** The shortest way over the walkable grid from cell a to cell b (A*, eight ways, no corners cut): indices, or null. */
+/**
+ * The shortest way over the walkable grid from cell a to cell b (A*, eight ways, no corners cut): indices, or null.
+ * @param {Layout} L
+ * @param {number} a
+ * @param {number} b
+ */
 function gridPath(L, a, b) {
   const G = L.grid, nx = G.nx, N = nx * G.nz, W = L.walk;
   const cost = new Float32Array(N).fill(Infinity);
   const from = new Int32Array(N).fill(-1);
   const done = new Uint8Array(N);
-  // A binary heap of [priority, index].
+  /** A binary heap of [priority, index]. @type {[number, number][]} */
   const heap = [];
+  /** @type {(p: number, k: number) => void} */
   const push = (p, k) => {
     heap.push([p, k]);
     for (let i = heap.length - 1; i > 0;) {
@@ -555,7 +695,7 @@ function gridPath(L, a, b) {
     }
   };
   const pop = () => {
-    const top = heap[0], last = heap.pop();
+    const top = heap[0], last = /** @type {[number, number]} */ (heap.pop()); // called only while there is one
     if (heap.length) {
       heap[0] = last;
       for (let i = 0; ;) {
@@ -571,6 +711,7 @@ function gridPath(L, a, b) {
     return top[1];
   };
   const bi = b % nx, bj = (b - bi) / nx;
+  /** @type {(k: number) => number} */
   const guess = (k) => {
     const i = k % nx, j = (k - i) / nx, di = Math.abs(i - bi), dj = Math.abs(j - bj);
     return Math.max(di, dj) + (Math.SQRT2 - 1) * Math.min(di, dj);
@@ -611,6 +752,11 @@ function gridPath(L, a, b) {
  * there when nothing is in the way, else round the water (over the bridge when it is between
  * them), the trunks and the bench, the corners of the way cut wherever a straight walk is clear.
  * [[x, z], …], ending at the target; empty when there is no way.
+ * @param {Layout} L
+ * @param {number} fx
+ * @param {number} fz
+ * @param {number} tx
+ * @param {number} tz
  * @returns {[number, number][]}
  */
 export function route(L, fx, fz, tx, tz) {
@@ -649,7 +795,13 @@ export function route(L, fx, fz, tx, tz) {
 // ── Rays ─────────────────────────────────────────────────────────────────────
 
 let _tn = 0, _tf = 0;
-/** Narrows [_tn, _tf] to where o + t·d is between lo and hi on one axis; false when it never is. */
+/**
+ * Narrows [_tn, _tf] to where o + t·d is between lo and hi on one axis; false when it never is.
+ * @param {number} o
+ * @param {number} d
+ * @param {number} lo
+ * @param {number} hi
+ */
 function slab(o, d, lo, hi) {
   if (Math.abs(d) < 1e-9) return o >= lo && o <= hi;
   let a = (lo - o) / d, b = (hi - o) / d;
@@ -663,7 +815,21 @@ function slab(o, d, lo, hi) {
   return _tn <= _tf;
 }
 
-/** Where a ray (o + t·d, t > 0) meets the box lo…hi (in whatever frame both are in): the t, or Infinity. */
+/**
+ * Where a ray (o + t·d, t > 0) meets the box lo…hi (in whatever frame both are in): the t, or Infinity.
+ * @param {number} ox
+ * @param {number} oy
+ * @param {number} oz
+ * @param {number} dx
+ * @param {number} dy
+ * @param {number} dz
+ * @param {number} x0
+ * @param {number} y0
+ * @param {number} z0
+ * @param {number} x1
+ * @param {number} y1
+ * @param {number} z1
+ */
 function rayBox(ox, oy, oz, dx, dy, dz, x0, y0, z0, x1, y1, z1) {
   _tn = -Infinity;
   _tf = Infinity;
@@ -671,7 +837,21 @@ function rayBox(ox, oy, oz, dx, dy, dz, x0, y0, z0, x1, y1, z1) {
   return _tn > 0 ? _tn : Infinity; // starting inside: no hit
 }
 
-/** The ray's t at the ellipsoid (centre c, half sizes r), or Infinity. */
+/**
+ * The ray's t at the ellipsoid (centre c, half sizes r), or Infinity.
+ * @param {number} ox
+ * @param {number} oy
+ * @param {number} oz
+ * @param {number} dx
+ * @param {number} dy
+ * @param {number} dz
+ * @param {number} cx
+ * @param {number} cy
+ * @param {number} cz
+ * @param {number} rx
+ * @param {number} ry
+ * @param {number} rz
+ */
 function rayEllipsoid(ox, oy, oz, dx, dy, dz, cx, cy, cz, rx, ry, rz) {
   const px = (ox - cx) / rx, py = (oy - cy) / ry, pz = (oz - cz) / rz;
   const qx = dx / rx, qy = dy / ry, qz = dz / rz;
@@ -682,7 +862,20 @@ function rayEllipsoid(ox, oy, oz, dx, dy, dz, cx, cy, cz, rx, ry, rz) {
   return t > 0 ? t : Infinity;
 }
 
-/** The ray's t at a vertical cylinder (axis at x, z; radius r; from y0 to y1), or Infinity. */
+/**
+ * The ray's t at a vertical cylinder (axis at x, z; radius r; from y0 to y1), or Infinity.
+ * @param {number} ox
+ * @param {number} oy
+ * @param {number} oz
+ * @param {number} dx
+ * @param {number} dy
+ * @param {number} dz
+ * @param {number} x
+ * @param {number} z
+ * @param {number} r
+ * @param {number} y0
+ * @param {number} y1
+ */
 function rayCylinder(ox, oy, oz, dx, dy, dz, x, z, r, y0, y1) {
   const px = ox - x, pz = oz - z;
   const a = dx * dx + dz * dz, b = px * dx + pz * dz, c = px * px + pz * pz - r * r;
@@ -695,13 +888,24 @@ function rayCylinder(ox, oy, oz, dx, dy, dz, x, z, r, y0, y1) {
   return y >= y0 && y <= y1 ? t : Infinity;
 }
 
-/** What a ray meets on the ground's surface: the ground, or the water over it. */
+/**
+ * What a ray meets on the ground's surface: the ground, or the water over it.
+ * @param {Layout} L
+ * @param {number} x
+ * @param {number} z
+ */
 function surface(L, x, z) {
   const g = groundAt(L, x, z);
   if (onDeck(x, z)) return g;
   const level = waterLevel(x);
   return g < level && shoreAt(L, x, z) < 0 ? level : g;
 }
+
+/**
+ * What castRay writes into: common's Hit (common/controls.js) and where on the panel (controls.js's
+ * GardenHit is one).
+ * @typedef {{ t: number, kind: string, x: number, y: number, z: number, nx: number, ny: number, nz: number, u: number, v: number, walkable: boolean }} RayHit
+ */
 
 const _ray = { r: 0, f: 0 };
 /**
@@ -710,6 +914,16 @@ const _ray = { r: 0, f: 0 };
  * { t, kind, x, y, z, nx, ny, nz, u, v, walkable } (n: the surface's normal, toward the ray; u, v:
  * where on the panel, 0…1 from its bottom left; walkable: for the ground, whether it is somewhere
  * to stand) and returns it.
+ * @template {RayHit} H
+ * @param {Layout} L
+ * @param {number} ox
+ * @param {number} oy
+ * @param {number} oz
+ * @param {number} dx
+ * @param {number} dy
+ * @param {number} dz
+ * @param {H} out
+ * @returns {H | null}
  */
 export function castRay(L, ox, oy, oz, dx, dy, dz, out) {
   let best = Infinity;

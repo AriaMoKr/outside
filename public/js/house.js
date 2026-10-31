@@ -25,7 +25,7 @@ const X0 = -13.5, X1 = 13.5, BOTTOM = -0.8, PLINTH = 0.28;
 const CORNICE = HOUSE.height - 0.36;
 
 /**
- * @param {object} L the garden's layout
+ * @param {import('./garden.js').Layout} L the garden's layout
  * @param {object} o
  * @param {{ title: string, subtitle: string, sign: string }} o.names what the door's plaque and sign say
  * @param {string} o.glow the doorway's colour, '#rrggbb'
