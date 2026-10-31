@@ -10,10 +10,20 @@ export const GOLD = '#e0bb72';
 const ENAMEL = '#14231f';
 
 let anisotropy = 1;
+/**
+ * The anisotropic filtering of the textures made from now on (main.js sets it from the renderer's).
+ * @param {number} n
+ */
 export function setAnisotropy(n) {
   anisotropy = n;
 }
 
+/**
+ * A new canvas, w × h. It always has a 2D context, so the painters here take getContext('2d')'s
+ * as one, never null.
+ * @param {number} w
+ * @param {number} h
+ */
 export function canvas(w, h) {
   const c = document.createElement('canvas');
   c.width = w;
@@ -21,7 +31,10 @@ export function canvas(w, h) {
   return c;
 }
 
-/** A seeded random number generator (mulberry32), as the hallway's. */
+/**
+ * A seeded random number generator (mulberry32), as the hallway's.
+ * @param {number} seed
+ */
 export function rng(seed) {
   return () => {
     seed = (seed + 0x6d2b79f5) | 0;
@@ -31,6 +44,11 @@ export function rng(seed) {
   };
 }
 
+/**
+ * A canvas as a texture: sRGB unless `srgb` is false, repeating when `repeat`, with the anisotropy set (setAnisotropy).
+ * @param {HTMLCanvasElement} c
+ * @param {{ repeat?: boolean, srgb?: boolean }} [o]
+ */
 export function texture(c, { repeat = false, srgb = true } = {}) {
   const t = new THREE.CanvasTexture(c);
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
@@ -39,7 +57,15 @@ export function texture(c, { repeat = false, srgb = true } = {}) {
   return t;
 }
 
-/** Draws something near the edge of a repeating canvas again on the other side, so it wraps. */
+/**
+ * Draws something near the edge of a repeating canvas again on the other side, so it wraps.
+ * @param {number} W
+ * @param {number} H
+ * @param {number} x
+ * @param {number} y
+ * @param {number} reach
+ * @param {(x: number, y: number) => void} draw
+ */
 function wrapped(W, H, x, y, reach, draw) {
   for (const ox of [-W, 0, W]) {
     for (const oy of [-H, 0, H]) {
@@ -49,7 +75,17 @@ function wrapped(W, H, x, y, reach, draw) {
   }
 }
 
-/** Soft blotches, wrapping. */
+/**
+ * Soft blotches, wrapping.
+ * @param {CanvasRenderingContext2D} g
+ * @param {() => number} r
+ * @param {number} W
+ * @param {number} H
+ * @param {number} count
+ * @param {string} rgb 'r,g,b'
+ * @param {number} alpha
+ * @param {number} size
+ */
 function clouds(g, r, W, H, count, rgb, alpha, size) {
   for (let k = 0; k < count; k++) {
     const x = r() * W, y = r() * H, rad = size * (0.3 + r()), a = alpha * (0.5 + r());
@@ -63,7 +99,16 @@ function clouds(g, r, W, H, count, rgb, alpha, size) {
   }
 }
 
-/** Small stones, lit from the top left, wrapping. */
+/**
+ * Small stones, lit from the top left, wrapping.
+ * @param {CanvasRenderingContext2D} g
+ * @param {() => number} r
+ * @param {number} W
+ * @param {number} H
+ * @param {number} count
+ * @param {number} size
+ * @param {[string, string][]} tones each a stone's lit side and its shade
+ */
 function pebbles(g, r, W, H, count, size, tones) {
   for (let k = 0; k < count; k++) {
     const x = r() * W, y = r() * H, rx = size * (0.4 + r()), ry = rx * (0.55 + 0.4 * r()), rot = r() * Math.PI;
@@ -91,7 +136,7 @@ function pebbles(g, r, W, H, count, size, tones) {
 /** The lawn: short blades and the odd clover leaf and dry stem, seen from above. 2.2 m square, repeating. */
 export function grassTexture() {
   const S = 1024;
-  const c = canvas(S, S), g = c.getContext('2d'), r = rng(31);
+  const c = canvas(S, S), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')), r = rng(31);
   g.fillStyle = '#4c7a2c';
   g.fillRect(0, 0, S, S);
   clouds(g, r, S, S, 40, '34,66,20', 0.25, 160);
@@ -131,7 +176,7 @@ export function grassTexture() {
 /** The trail: packed earth and fine gravel. 1.6 m square, repeating. */
 export function pathTexture() {
   const S = 512;
-  const c = canvas(S, S), g = c.getContext('2d'), r = rng(41);
+  const c = canvas(S, S), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')), r = rng(41);
   g.fillStyle = '#a08867';
   g.fillRect(0, 0, S, S);
   clouds(g, r, S, S, 50, '120,96,66', 0.28, 70);
@@ -147,7 +192,7 @@ export function pathTexture() {
 /** The banks: wet dark earth, a few stones and a green film. 1.4 m square, repeating. */
 export function mudTexture() {
   const S = 512;
-  const c = canvas(S, S), g = c.getContext('2d'), r = rng(43);
+  const c = canvas(S, S), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')), r = rng(43);
   g.fillStyle = '#54432f';
   g.fillRect(0, 0, S, S);
   clouds(g, r, S, S, 50, '34,26,18', 0.35, 80);
@@ -166,7 +211,7 @@ export function mudTexture() {
  */
 export function leafTexture() {
   const S = 512;
-  const c = canvas(S, S), g = c.getContext('2d'), r = rng(53);
+  const c = canvas(S, S), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')), r = rng(53);
   g.fillStyle = '#9a9a9a';
   g.fillRect(0, 0, S, S);
   clouds(g, r, S, S, 30, '50,50,50', 0.3, 70);
@@ -198,7 +243,7 @@ export const BRICK_TILE = 2.025;
 export function brickTexture() {
   const S = 1024, courses = 27, perCourse = 9;
   const ch = S / courses, bw = S / perCourse, m = 4;
-  const c = canvas(S, S), g = c.getContext('2d'), r = rng(61);
+  const c = canvas(S, S), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')), r = rng(61);
   g.fillStyle = '#b9a88e';
   g.fillRect(0, 0, S, S);
   for (let k = 0; k < 6000; k++) {
@@ -206,7 +251,7 @@ export function brickTexture() {
     g.fillRect(r() * S, r() * S, 1 + r() * 2, 1 + r() * 2);
   }
   const tones = ['#93452f', '#8a3f2b', '#a3553a', '#7d3a27', '#9d4b33', '#b0613f', '#6f3324', '#a14a30', '#8e4a36'];
-  /** One brick at x0, painted from its own seed (so the one cut by the right edge goes on at the left). */
+  /** One brick at x0, painted from its own seed (so the one cut by the right edge goes on at the left). @type {(x0: number, y0: number, seed: number) => void} */
   const brick = (x0, y0, seed) => {
     const b = rng(seed);
     g.fillStyle = tones[Math.floor(b() * tones.length)];
@@ -244,7 +289,7 @@ export function brickTexture() {
  */
 export function windowTexture() {
   const W = 256, H = 512;
-  const c = canvas(W, H), g = c.getContext('2d'), r = rng(71);
+  const c = canvas(W, H), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')), r = rng(71);
   const room = g.createLinearGradient(0, 0, 0, H);
   room.addColorStop(0, '#3b2a1c');
   room.addColorStop(0.55, '#24170f');
@@ -282,7 +327,13 @@ export function windowTexture() {
 
 // ── Signs, in the hallway's look ─────────────────────────────────────────────
 
-/** Lines of text no wider than maxWidth, at most maxLines (the last cut short with an ellipsis). */
+/**
+ * Lines of text no wider than maxWidth, at most maxLines (the last cut short with an ellipsis).
+ * @param {CanvasRenderingContext2D} g
+ * @param {string} text
+ * @param {number} maxWidth
+ * @param {number} maxLines
+ */
 export function wrapText(g, text, maxWidth, maxLines) {
   const words = String(text).split(/\s+/).filter(Boolean);
   const lines = [];
@@ -305,7 +356,14 @@ export function wrapText(g, text, maxWidth, maxLines) {
   return lines;
 }
 
-/** The largest font (from size down) at which text fits maxWidth. */
+/**
+ * The largest font (from size down) at which text fits maxWidth.
+ * @param {CanvasRenderingContext2D} g
+ * @param {string} text
+ * @param {number} maxWidth
+ * @param {number} size
+ * @param {string} style the CSS font style or weight
+ */
 export function fit(g, text, maxWidth, size, style) {
   for (; size > 10; size -= 2) {
     g.font = `${style} ${size}px ${SERIF}`;
@@ -314,7 +372,13 @@ export function fit(g, text, maxWidth, size, style) {
   return size;
 }
 
-/** A sign's ground: a wooden edge, dark green enamel and a gold line. */
+/**
+ * A sign's ground: a wooden edge, dark green enamel and a gold line.
+ * @param {CanvasRenderingContext2D} g
+ * @param {number} w
+ * @param {number} h
+ * @param {number} inset the wooden edge's width
+ */
 export function enamel(g, w, h, inset) {
   g.fillStyle = '#2b1b10';
   g.fillRect(0, 0, w, h);
@@ -328,10 +392,14 @@ export function enamel(g, w, h, inset) {
   g.strokeRect(inset + 8, inset + 8, w - (inset + 8) * 2, h - (inset + 8) * 2);
 }
 
-/** The plaque beside the door: where it leads, and a line about it. 0.60 × 0.34 m. */
+/**
+ * The plaque beside the door: where it leads, and a line about it. 0.60 × 0.34 m.
+ * @param {string} title
+ * @param {string} subtitle
+ */
 export function plaqueTexture(title, subtitle) {
   const W = 512, H = 290;
-  const c = canvas(W, H), g = c.getContext('2d');
+  const c = canvas(W, H), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
   enamel(g, W, H, 12);
   g.textAlign = 'center';
   g.textBaseline = 'alphabetic';
@@ -347,10 +415,13 @@ export function plaqueTexture(title, subtitle) {
   return texture(c);
 }
 
-/** The sign over the door. 0.84 × 0.27 m. */
+/**
+ * The sign over the door. 0.84 × 0.27 m.
+ * @param {string} text
+ */
 export function signTexture(text) {
   const W = 640, H = 206;
-  const c = canvas(W, H), g = c.getContext('2d');
+  const c = canvas(W, H), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
   enamel(g, W, H, 9);
   g.textAlign = 'center';
   g.textBaseline = 'middle';
@@ -360,10 +431,14 @@ export function signTexture(text) {
   return texture(c);
 }
 
-/** What the doorway shows until the view through it arrives, or for good when there is none: its glow and its name. 2:1. */
+/**
+ * What the doorway shows until the view through it arrives, or for good when there is none: its glow and its name. 2:1.
+ * @param {string} name
+ * @param {string} color the glow, a CSS colour
+ */
 export function previewFallback(name, color) {
   const W = 1024, H = 512;
-  const c = canvas(W, H), g = c.getContext('2d');
+  const c = canvas(W, H), g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
   const grad = g.createRadialGradient(W / 2, H * 0.55, 10, W / 2, H * 0.55, W * 0.6);
   grad.addColorStop(0, color);
   grad.addColorStop(1, '#050403');
