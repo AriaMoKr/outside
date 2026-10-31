@@ -8,6 +8,17 @@ import * as THREE from 'three';
 import { PANEL, PANEL_PX, PANEL_BUTTONS } from './garden.js';
 import { GOLD, SANS, SERIF, enamel } from './textures.js';
 
+/** @typedef {import('common/nav.js').Nav} Nav */
+/** @typedef {import('common/access.js').Access} Access */
+/**
+ * What the panel shows: vr is 'exit' (in VR), 'enter' (VR available) or 'none'; move and turn as
+ * in common/nav.js; motion, vignette and seated as in common/access.js; room is the shared
+ * session's (null when not in one), link its invite link, here and away how many others are in
+ * the garden and elsewhere in it.
+ * @typedef {{ vr: 'exit' | 'enter' | 'none', move: Nav['move'], turn: Nav['turn'], motion: Access['motion'], vignette: boolean, seated: boolean, room: string | null, link: string, here: number, away: number }} PanelState
+ */
+
+/** The choices' labels, by button id (garden.js PANEL_BUTTONS). @type {Record<string, string>} */
 const LABELS = {
   'move:teleport': 'Teleport', 'move:smooth': 'Smooth', 'turn:snap': 'Snap', 'turn:smooth': 'Smooth',
   'motion:system': 'System', 'motion:reduce': 'Less', 'motion:full': 'Full',
@@ -19,11 +30,20 @@ const HINTS = {
   smooth: 'Left stick: walk · trigger at the floor: teleport',
 };
 const SESSION_LABELS = { on: 'Leave shared session', off: 'Start shared session' };
+/** The state's keys: set redraws only when one of them changes. @type {(keyof PanelState)[]} */
 const KEYS = ['vr', 'move', 'turn', 'motion', 'vignette', 'seated', 'room', 'link', 'here', 'away'];
-/** A button's value in the state: the vignette and seated are on or off. */
+/**
+ * A button's value in the state: the vignette and seated are on or off.
+ * @param {PanelState} state
+ * @param {keyof PanelState} group
+ */
 const value = (state, group) => (typeof state[group] === 'boolean' ? (state[group] ? 'on' : 'off') : state[group]);
 
-/** Who else is in the session, in a few words. */
+/**
+ * Who else is in the session, in a few words.
+ * @param {number} here how many others are in the garden
+ * @param {number} away and how many elsewhere
+ */
 export function companyText(here, away) {
   if (!here && !away) return 'Nobody else yet';
   const parts = [];
@@ -38,7 +58,7 @@ export class ControlPanel {
     this.canvas = document.createElement('canvas');
     this.canvas.width = PANEL_PX.width;
     this.canvas.height = PANEL_PX.height;
-    this.ctx = this.canvas.getContext('2d');
+    this.ctx = /** @type {CanvasRenderingContext2D} */ (this.canvas.getContext('2d')); // a new canvas always has one
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = anisotropy;
@@ -47,16 +67,16 @@ export class ControlPanel {
     // On the wall (z = 0), facing the garden (-z).
     this.mesh.position.set(PANEL.x, PANEL.y, -PANEL.depth);
     this.mesh.rotation.y = Math.PI;
+    /** What it shows (set). @type {PanelState} */
     this.state = { vr: 'none', move: 'smooth', turn: 'snap', motion: 'system', vignette: true, seated: false, room: null, link: '', here: 0, away: 0 };
+    /** The button pointed at (setHover), or null. @type {string | null} */
     this.hover = null;
     this._draw();
   }
 
   /**
-   * What it shows, all or part of it: vr is 'exit' (in VR), 'enter' (VR available) or 'none'; move
-   * and turn as in common/nav.js; motion, vignette and seated as in common/access.js; room is the
-   * shared session's (null when not in one), link its invite link, here and away how many others
-   * are in the hallway and elsewhere in it.
+   * What it shows, all or part of it (PanelState says what each is).
+   * @param {Partial<PanelState>} state
    */
   set(state) {
     const next = { ...this.state, ...state };
@@ -65,7 +85,10 @@ export class ControlPanel {
     this._draw();
   }
 
-  /** The button pointed at, or null. */
+  /**
+   * The button pointed at, or null.
+   * @param {string | null} id its id (garden.js PANEL_BUTTONS)
+   */
   setHover(id) {
     if (id === this.hover) return;
     this.hover = id;
@@ -96,7 +119,8 @@ export class ControlPanel {
       } else if (id === 'session') {
         label = SESSION_LABELS[this.state.room ? 'on' : 'off'];
       } else {
-        const [group, choice] = id.split(':');
+        // The rest are 'group:choice', the group one of the state's.
+        const [group, choice] = /** @type {[keyof PanelState, string]} */ (id.split(':'));
         label = LABELS[id];
         selected = value(this.state, group) === choice;
       }
@@ -143,7 +167,13 @@ export class ControlPanel {
   }
 }
 
-/** Sets the largest font, from `size` px down, at which `text` fits `width`. */
+/**
+ * Sets the largest font, from `size` px down, at which `text` fits `width`.
+ * @param {CanvasRenderingContext2D} g
+ * @param {string} text
+ * @param {number} width
+ * @param {number} size
+ */
 function fitText(g, text, width, size) {
   for (let s = size; s >= 12; s--) {
     g.font = `${s}px ${SANS}`;
