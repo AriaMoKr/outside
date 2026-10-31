@@ -11,6 +11,8 @@ import { sunlit } from './bake.js';
 import { Builder } from './builder.js';
 import { SKY_UV, SUN_DIR } from 'common/sky.js';
 
+/** @typedef {import('./bake.js').Env} Env */
+
 /**
  * The ripple picture (a TV's water): its size in noise cells, and pixels to a cell; and the
  * steepest its slope gets per cell, either way (a smooth step between 0 and 1 is 1.5 at its middle).
@@ -133,8 +135,12 @@ void main() {
 `;
 
 /**
- * The water's mesh and material. `env` is the baked lighting's (for its shadows on the water);
- * `rippleMap`, the ripples read from a picture (rippleTexture: lite.js 'water', a TV's).
+ * The water's mesh and material. `env` is the baked lighting's (for its shadows on the water, and
+ * the sun's and the sky's colours); `skyMap`, the sky's picture (common's skyTexture), which it
+ * reflects; `rippleMap`, the ripples read from a picture (rippleTexture: lite.js 'water', a TV's).
+ * @param {Env} env
+ * @param {THREE.Texture} skyMap
+ * @param {{ rippleMap?: boolean }} [o]
  * @returns {{ mesh: THREE.Mesh, update(time: number): void }}
  */
 export function buildWater(env, skyMap, { rippleMap = false } = {}) {
@@ -152,7 +158,7 @@ export function buildWater(env, skyMap, { rippleMap = false } = {}) {
     const near = nearWidth(x), far = farWidth(x), width = near + far;
     // Narrow runs fast, the pond hardly at all.
     const speed = Math.min(0.5, 0.62 / width);
-    if (lastX !== null) travel += Math.hypot(x - lastX, s.z - lastZ) / speed;
+    if (lastX !== null) travel += Math.hypot(x - lastX, s.z - /** @type {number} */ (lastZ)) / speed; // set with lastX
     lastX = x;
     lastZ = s.z;
     const calm = Math.min(1, Math.max(0, (width - 1.6) / 1.6));
@@ -232,8 +238,10 @@ export function rippleData(seed = 1979) {
     x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
     corners[i] = x / 4294967296;
   }
+  /** A corner's value, by its cell, the lattice repeating. @type {(i: number, j: number) => number} */
   const at = (i, j) => corners[((j + C) % C) * C + ((i + C) % C)];
   const out = new Uint8Array(N * N * 4);
+  /** 0…1 as a byte. @type {(v: number) => number} */
   const byte = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
   for (let py = 0; py < N; py++) {
     for (let px = 0; px < N; px++) {
@@ -266,7 +274,10 @@ export function rippleTexture() {
   return t;
 }
 
-/** The first column at or under x on the 0.2 m grid. */
+/**
+ * The first column at or under x on the 0.2 m grid.
+ * @param {number} x
+ */
 function STEP_X(x) {
   return Math.floor(x / 0.2) * 0.2;
 }

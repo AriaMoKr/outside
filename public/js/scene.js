@@ -13,10 +13,14 @@ import { buildWater } from './water.js';
 import { grassTexture, leafTexture, mudTexture, pathTexture, rng } from './textures.js';
 import { skyDome, skyTexture } from 'common/sky.js';
 
+/** @typedef {import('./bake.js').RGB} RGB */
+
+/** A CSS colour ('#rrggbb') as linear RGB. @type {(hex: string) => RGB} */
 const lin = (hex) => {
   const c = new THREE.Color(hex);
   return [c.r, c.g, c.b];
 };
+/** A colour k times as bright. @type {(c: RGB, k: number) => RGB} */
 const scale = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 const smooth = (a, b, v) => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));

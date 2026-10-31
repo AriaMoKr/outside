@@ -20,9 +20,11 @@ import { SUN_DIR } from 'common/sky.js';
  * What the garden is lit by (scene.js's env): the sun's colour, shining from SUN_DIR; the sky's
  * light on a surface facing up and the ground's on one facing down; the point lights, as the
  * hallway's (at p, colour c, intensity i, half as bright at distance r, reaching wrap round a
- * surface's side: 0.1 unless given), all linear RGB; and what shades, prepared.
- * @typedef {{ p: number[], c: number[], i: number, r: number, wrap?: number }} Light
- * @typedef {{ sun: { color: number[] }, sky: number[], ground: number[], lights: Light[], occluders: Prepared[] }} Env
+ * surface's side: 0.1 unless given); and what shades, prepared. Each colour is an RGB: r, g, b,
+ * linear, as three.js's Color holds them (water.js makes Colors of the sun's and the sky's).
+ * @typedef {[number, number, number]} RGB
+ * @typedef {{ p: number[], c: RGB, i: number, r: number, wrap?: number }} Light
+ * @typedef {{ sun: { color: RGB }, sky: RGB, ground: RGB, lights: Light[], occluders: Prepared[] }} Env
  */
 
 /** @type {(x: number, y: number, z: number) => [number, number, number]} */
