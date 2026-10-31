@@ -9,5 +9,5 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": ["test/remote.test.js", "types/*.d.ts"]
+  "include": ["test/garden.test.js", "test/helpers/fake-dom.js", "test/lite.test.js", "test/pages.test.js", "test/reader.test.js", "test/remote.test.js", "test/site.test.js", "test/text-view.test.js", "test/together.test.js", "test/types.test.js", "test/water.test.js", "test/way.test.js", "tools/hallway-view.mjs", "tools/preview.mjs", "tools/serve.mjs", "types/*.d.ts", "types/node/*.d.ts"]
 }
