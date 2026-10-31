@@ -10,10 +10,14 @@
 // renderPart, partOf and topBlock are pure (a document passed in), for the tests; TextView is the page's.
 import { SECTION, folioLabel, progressOf, sectionBlocks, sectionCount } from './pages.js';
 
-/** The parts: the title page with the contents (part 0), each piece, the sources. */
+/** @typedef {import('./pages.js').At} At */
+/** @typedef {import('./pages.js').BookText} BookText */
+
+/** The parts: the title page with the contents (part 0), each piece, the sources. @type {(book: BookText) => number} */
 export const partCount = (book) => sectionCount(book) - 1;
-/** The part a section of the book (pages.js SECTION) is in, and the sections of a part. */
+/** The part a section of the book (pages.js SECTION) is in, and the sections of a part. @type {(section: number) => number} */
 export const partOf = (section) => Math.max(0, section - 1);
+/** @type {(part: number) => number[]} */
 export const partSections = (part) => (part === 0 ? [SECTION.title, SECTION.contents] : [part + 1]);
 
 /**
@@ -24,11 +28,12 @@ export const partSections = (part) => (part === 0 ? [SECTION.title, SECTION.cont
  * pages.js numbers it), and the first of each the id `tv-<s>-<b>`.
  * @param {Document} doc
  * @param {Element} container
- * @param {{ title: string, subtitle: string, pieces: object[], colophon: string[] }} book
+ * @param {BookText} book
  * @param {number} part
  * @param {{ onLink?: (section: number, e: Event) => void }} [o]
  */
 export function renderPart(doc, container, book, part, o = {}) {
+  /** @type {(tag: string, cls?: string | null, text?: string) => HTMLElement} */
   const el = (tag, cls, text) => {
     const e = doc.createElement(tag);
     if (cls) e.setAttribute('class', cls);
@@ -36,6 +41,7 @@ export function renderPart(doc, container, book, part, o = {}) {
     return e;
   };
   const ids = new Set();
+  /** @type {(e: HTMLElement, s: number, b: number) => HTMLElement} */
   const mark = (e, s, b) => {
     e.setAttribute('data-s', String(s));
     e.setAttribute('data-b', String(b));
@@ -87,7 +93,9 @@ export function renderPart(doc, container, book, part, o = {}) {
 /**
  * The block at the top of the view: the first whose bottom is below `top` (the toolbar's foot),
  * else the last. rects: each block's { s, b, top, bottom }, in the order shown.
- * @returns {[number, number, number]} its place (pages.js `at`), from its first word
+ * @param {{ s: number, b: number, top: number, bottom: number }[]} rects
+ * @param {number} top
+ * @returns {At} its place (pages.js `at`), from its first word
  */
 export function topBlock(rects, top) {
   for (const r of rects) if (r.bottom > top + 1) return [r.s, r.b, 0];
@@ -98,14 +106,18 @@ export function topBlock(rects, top) {
 /**
  * The words of an element, as pages.js counts a block's words (`at`'s third part): each [text
  * node, where in it the word starts], in order.
+ * @param {Node} el
  */
 export function wordStarts(el) {
+  /** @type {[Text, number][]} */
   const out = [];
+  /** @param {Node} n */
   const walk = (n) => {
     for (const c of n.childNodes) {
       if (c.nodeType === 3) {
+        const node = /** @type {Text} */ (c); // nodeType 3: a text node
         const re = /\S+/g;
-        for (let m = re.exec(c.data); m; m = re.exec(c.data)) out.push([c, m.index]);
+        for (let m = re.exec(node.data); m; m = re.exec(node.data)) out.push([node, m.index]);
       } else walk(c);
     }
   };
@@ -113,7 +125,12 @@ export function wordStarts(el) {
   return out;
 }
 
-/** The first of `count` words whose line is below `top`: lineBottom(i) is word i's line's foot (it only grows with i). */
+/**
+ * The first of `count` words whose line is below `top`: lineBottom(i) is word i's line's foot (it only grows with i).
+ * @param {number} count
+ * @param {number} top
+ * @param {(i: number) => number} lineBottom
+ */
 export function firstWordBelow(count, top, lineBottom) {
   let lo = 0, hi = count - 1;
   if (count === 0 || lineBottom(hi) <= top + 1) return Math.max(0, count - 1);
@@ -150,7 +167,8 @@ const STATIC = `
     <nav class="tv-parts" aria-label="At the end"><button type="button" class="tv-prev" aria-label="Previous part">←<span class="tv-wide"> Previous part</span></button><button type="button" class="tv-next" aria-label="Next part"><span class="tv-wide">Next part </span>→</button></nav>
   </div>`;
 
-const isField = (t) => t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName);
+/** Whether a key's target is a field, whose keys are its own. @param {EventTarget | null} t */
+const isField = (t) => t && /^(INPUT|SELECT|TEXTAREA)$/.test(/** @type {Element} */ (t).tagName); // a key in the view comes from one of its elements
 
 /**
  * The text view of the open book, on a screen. main.js calls follow() after every page turn or
@@ -162,7 +180,7 @@ export class TextView {
    * @param {object} o
    * @param {HTMLElement} o.root where the view goes (inside the page's <main>)
    * @param {import('./book.js').Book} o.reader the 3D book
-   * @param {object} o.text its words (reading.js: { title, subtitle, pieces, colophon })
+   * @param {BookText} o.text its words (reading.js: { title, subtitle, pieces, colophon })
    * @param {() => void} o.putDown puts the book down (main.js closeBook)
    * @param {() => void} o.back Back along the links (main.js: through the browser's history)
    * @param {() => boolean} o.presenting whether in VR (nothing shows there)
@@ -190,16 +208,18 @@ export class TextView {
     el.innerHTML = STATIC; // the view's own markup only: the book's text goes in as text (renderPart)
     root.append(el);
     this.el = el;
-    this.$ = (sel) => el.querySelector(sel);
+    /** One of the view's own elements, by its selector. @type {(sel: string) => HTMLElement} */
+    this.$ = (sel) => /** @type {HTMLElement} */ (el.querySelector(sel)); // STATIC has each one asked for
     this.part = -1; // the part shown
     this._open = false;
     // The place shared with the 3D book, [s, b, 0]: where the view put itself, or the block at its
     // top once the reader's own scrolling rests (_sync). The view's own scrolls are not reading:
     // _self while a smooth one runs, _selfTop where an instant one left the view. _moved: the
     // reader has scrolled since the place was taken.
-    /** @type {import('./pages.js').At | null} */
+    /** @type {At | null} */
     this._at = null;
-    this._aim = null; // a place the view goes to, not the 3D page's first block (a size, a part)
+    /** A place the view goes to, not the 3D page's first block (a size, a part, a link). @type {At | null} */
+    this._aim = null;
     this._self = false;
     this._selfTop = null;
     this._moved = false;
@@ -220,9 +240,11 @@ export class TextView {
 
   _wire() {
     const B = this.book;
+    /** @type {(sel: string, fn: () => void) => void} */
     const q = (sel, fn) => this.el.querySelectorAll(sel).forEach((b) => b.addEventListener('click', fn));
     // What starts from the reader's place brings the 3D book there first (_sync), so a size, Back
     // or a turn starts from where the view is, not from where the 3D book was left.
+    /** @type {(fn: () => void) => () => void} */
     const synced = (fn) => () => {
       this._sync();
       fn();
@@ -235,8 +257,8 @@ export class TextView {
     q('.tv-putback', () => this.putDown());
     q('.tv-prev', () => this._part(-1));
     q('.tv-next', () => this._part(1));
-    this.$('.tv-theme-sel').addEventListener('change', (e) => this._theme(e.target.value));
-    this.$('.tv-slider').addEventListener('change', (e) => B.jumpToProgress(Number(e.target.value) / 1000));
+    this.$('.tv-theme-sel').addEventListener('change', (e) => this._theme(/** @type {HTMLSelectElement} */ (e.target).value)); // the select's own
+    this.$('.tv-slider').addEventListener('change', (e) => B.jumpToProgress(Number(/** @type {HTMLInputElement} */ (e.target).value) / 1000)); // the slider's own
     this.el.addEventListener('scroll', () => {
       if (!this._self && this.el.scrollTop !== this._selfTop) this._moved = true;
       this._restSoon();
@@ -261,7 +283,7 @@ export class TextView {
     });
   }
 
-  /** ← →: the 3D book a page on or back from the reader's place, the view following it. */
+  /** ← →: the 3D book a page on or back from the reader's place, the view following it. @param {number} side */
   turn(side) {
     this._sync();
     this.book.turn(side);
@@ -270,6 +292,7 @@ export class TextView {
   /**
    * Reads on (dir 1) or back (-1) by most of what shows below the toolbar, a few lines staying in
    * sight: a TV's ↑ ↓ (main.js), its remote leaving the focus on the 3D view.
+   * @param {number} dir
    */
   scrollStep(dir) {
     if (!this._open) return;
@@ -277,14 +300,14 @@ export class TextView {
     this.el.scrollBy({ top: dir * Math.max(40, (this.el.clientHeight - bar) * 0.75), behavior: this.book.reduceMotion ? 'auto' : 'smooth' });
   }
 
-  /** The text size, one step, the view staying at its place. */
+  /** The text size, one step, the view staying at its place. @param {number} step */
   _size(step) {
     this._aim = this._at;
     this.book.changeFont(step);
     this._aim = null;
   }
 
-  /** A theme: the colours change, the text and its place do not. */
+  /** A theme: the colours change, the text and its place do not. @param {string} name */
   _theme(name) {
     this._quiet = true;
     try {
@@ -390,10 +413,14 @@ export class TextView {
     this.el.setAttribute('data-theme', s.theme);
     this.el.setAttribute('data-motion', this.book.reduceMotion ? 'less' : 'full');
     this.el.style.setProperty('--tv-scale', String(s.fontScale));
-    this.$('.tv-theme-sel').value = s.theme;
+    /** @type {HTMLSelectElement} */ (this.$('.tv-theme-sel')).value = s.theme; // STATIC's <select>
   }
 
-  /** Shows the part a place is in (building it when it is another), scrolled to its block. */
+  /**
+   * Shows the part a place is in (building it when it is another), scrolled to its block.
+   * @param {At | null} at
+   * @param {{ smooth?: boolean }} [o] a smooth scroll (as motion allows) within the part shown
+   */
   _show(at, { smooth = true } = {}) {
     if (!this._open || !at) return;
     const part = partOf(at[0]);
@@ -428,6 +455,8 @@ export class TextView {
   /**
    * Scrolls the place to just below the toolbar: the line with its word (a page of the 3D book
    * may begin in the middle of a paragraph), or its block, or (a part's heading) the top.
+   * @param {At} at
+   * @param {boolean} smooth
    */
   _scrollTo(at, smooth) {
     // The toolbar's height now, measured: its observer has not run yet when the view has just
@@ -449,7 +478,7 @@ export class TextView {
     this._selfTop = smoothly ? null : this.el.scrollTop;
   }
 
-  /** Where a word ([text node, offset], wordStarts) is drawn: its first letter's box. */
+  /** Where a word ([text node, offset], wordStarts) is drawn: its first letter's box. @param {[Text, number]} word */
   _rangeRect([node, offset]) {
     const r = (this._range ??= this.doc.createRange());
     r.setStart(node, offset);
@@ -463,7 +492,7 @@ export class TextView {
     const indices = B.readingPages();
     const label = folioLabel(B.pages, indices);
     this.$('.tv-label').textContent = label;
-    const slider = this.$('.tv-slider');
+    const slider = /** @type {HTMLInputElement} */ (this.$('.tv-slider')); // STATIC's range
     slider.value = String(Math.round(progressOf(B.pages, B.readingIndex()) * 1000));
     slider.setAttribute('aria-valuetext', /\//.test(label) ? `Page ${label.replace(' / ', ' of ')}` : label);
     this.$('.tv-back').hidden = !B.trail.length;
@@ -473,16 +502,16 @@ export class TextView {
     this.$('.tv-partno').textContent = `Part ${this.part + 1} of ${n}`;
   }
 
-  /** The previous or next part, from its start. */
+  /** The previous or next part, from its start. @param {number} dir */
   _part(dir) {
     const part = this.part + dir;
     if (part < 0 || part >= partCount(this.text)) return;
     this._goTo(partSections(part)[0]);
   }
 
-  /** A section's part, from its start: the previous or next one, or a piece in the contents. */
+  /** A section's part, from its start: the previous or next one, or a piece in the contents. @param {number} section */
   _goTo(section) {
-    /** @type {import('./pages.js').At} */
+    /** @type {At} */
     const at = [section, -1, 0];
     this._aim = at;
     // The spread may show the part's start already (a piece begun on its right-hand page): the
