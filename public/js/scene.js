@@ -116,6 +116,7 @@ export function buildGarden(L, { names, glow, anisotropy = 1, lite = new Set() }
 
   // What casts shadows, first: everything is lit knowing about all of it.
   const trim = new Builder(), leaves = new Builder(), sway = new Builder();
+  /** @type {import('./bake.js').Occluder[]} */
   const shadows = [];
   shadows.push(...buildBridge(L, trim), ...buildBench(L, trim), ...buildWall(L, trim));
   const runs = hedgeRuns();

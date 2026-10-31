@@ -6,29 +6,53 @@ import * as THREE from 'three';
 import { BACK_WALL, BENCH, BRIDGE, GARDEN, HEDGE, deckHeight, groundAt, toWorld, waterAt, waterLevel } from './garden.js';
 import { rng } from './textures.js';
 
+/** @typedef {import('./bake.js').RGB} RGB */
+/** @typedef {import('./bake.js').Occluder} Occluder */
+/** @typedef {import('./builder.js').Builder} Builder */
+/** @typedef {import('./garden.js').Layout} Layout */
+/**
+ * A run of hedge, as plants.js's hedgeRuns lays them out: its side (-1 the left, at -x; 1 the
+ * right), the x of its inner face (the garden's) and of its outer, and the z it runs from and to.
+ * @typedef {{ side: number, inner: number, outer: number, z0: number, z1: number }} HedgeRun
+ */
+
+/** A CSS colour ('#rrggbb') as linear RGB. @type {(hex: string) => RGB} */
 const lin = (hex) => {
   const c = new THREE.Color(hex);
   return [c.r, c.g, c.b];
 };
+/** A colour k times as bright. @type {(c: RGB, k: number) => RGB} */
 const scale = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+/** v at unit length (a zero vector as it is). @type {(v: number[]) => number[]} */
 const norm = (v) => {
   const l = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0] / l, v[1] / l, v[2] / l];
 };
+/** v times k. @type {(v: number[], k: number) => number[]} */
 const mul = (v, k) => [v[0] * k, v[1] * k, v[2] * k];
 
 const WOOD = lin('#8b6f53'), DARK_WOOD = lin('#5c4836'), RAIL_WOOD = lin('#7a5f45');
 const STONES = ['#8f897e', '#9d9486', '#7f7a72', '#a89d8b', '#8a8274', '#9a9690'].map(lin);
 const MOSS = lin('#5d6e34');
 
-/** The bridge: arched deck of planks on two stringers, posts and handrails, stone abutments. */
+/**
+ * The bridge: arched deck of planks on two stringers, posts and handrails, stone abutments.
+ * @param {Layout} L
+ * @param {Builder} b what it is built into (scene.js's trim)
+ * @returns {Occluder[]} its shadow
+ */
 export function buildBridge(L, b) {
   const r = rng(301);
   const { x, zA, zB, width } = BRIDGE;
   const half = width / 2;
+  /** The top of the deck at z. @param {number} z */
   const top = (z) => deckHeight(L, z);
-  /** Along the deck toward its far end (t, which runs toward -z), and its up (n, square to it). */
+  /**
+   * Along the deck toward its far end (t, which runs toward -z), and its up (n, square to it).
+   * @type {(t: number[]) => number[]}
+   */
   const upOf = (t) => [0, -t[2], t[1]];
+  /** The deck's t and n at z. @param {number} z */
   const frame = (z) => {
     const e = 0.02, t = norm([0, top(z - e) - top(z + e), -2 * e]);
     return { t, n: upOf(t) };
@@ -79,27 +103,50 @@ export function buildBridge(L, b) {
   return [{ kind: 'box', min: [x - half, top(zA) - 0.2, zB], max: [x + half, top((zA + zB) / 2), zA] }];
 }
 
-/** Moves a corner by up to `k` metres, the same corner always the same way. */
+/**
+ * Moves a corner by up to `k` metres, the same corner always the same way.
+ * @param {() => number} r random numbers (textures.js's rng)
+ * @param {number} k
+ * @returns {(p: number[]) => number[]}
+ */
 function jitterer(r, k) {
+  /** Where each corner went, by where it was. @type {Map<string, number[]>} */
   const seen = new Map();
   return (p) => {
     const key = `${p[0].toFixed(3)},${p[1].toFixed(3)},${p[2].toFixed(3)}`;
     if (!seen.has(key)) seen.set(key, [p[0] + (r() - 0.5) * 2 * k, p[1] + (r() - 0.5) * 2 * k, p[2] + (r() - 0.5) * 2 * k]);
-    return seen.get(key);
+    return /** @type {number[]} */ (seen.get(key)); // set above if it was not
   };
 }
 
-/** The bench: wooden slats on cast-iron ends, facing the pond and the house. */
+/**
+ * The bench: wooden slats on cast-iron ends, facing the pond and the house.
+ * @param {Layout} L
+ * @param {Builder} b what it is built into (scene.js's trim)
+ * @returns {Occluder[]} its shadow
+ */
 export function buildBench(L, b) {
   const r = rng(311);
   const place = L.bench;
   const y0 = place.y;
   const s = Math.sin(place.yaw), c = Math.cos(place.yaw);
   const R = [c, 0, -s], F = [-s, 0, -c], U = [0, 1, 0];
+  /**
+   * A point of the bench: rr to its right, f in front of it and y above its foot.
+   * @param {number} rr
+   * @param {number} f
+   * @param {number} y
+   */
   const at = (rr, f, y) => {
     const w = toWorld(place, rr, f);
     return [w.x, y0 + y, w.z];
   };
+  /**
+   * v1 turned by a radians toward v2 (at right angles to it).
+   * @param {number} a
+   * @param {number[]} v1
+   * @param {number[]} v2
+   */
   const tilt = (a, v1, v2) => [v1[0] * Math.cos(a) + v2[0] * Math.sin(a), v1[1] * Math.cos(a) + v2[1] * Math.sin(a), v1[2] * Math.cos(a) + v2[2] * Math.sin(a)];
   const half = BENCH.length / 2;
   const wood = lin('#9a7652'), iron = lin('#262b26');
@@ -142,10 +189,25 @@ export function buildBench(L, b) {
   }];
 }
 
-/** The dry-stone wall across the far end: courses of rough stones, a coping of stones on edge. */
+/**
+ * The dry-stone wall across the far end: courses of rough stones, a coping of stones on edge.
+ * @param {Layout} L
+ * @param {Builder} b what it is built into (scene.js's trim)
+ * @returns {Occluder[]} its shadow
+ */
 export function buildWall(L, b) {
   const r = rng(321);
   const z0 = GARDEN.z1, depth = BACK_WALL.depth, x0 = GARDEN.x0 - HEDGE.depth, x1 = GARDEN.x1 + HEDGE.depth;
+  /**
+   * A rough stone about (cx, cy, cz), hx, hy and hz from its middle to its sides, mossy on top.
+   * @param {number} cx
+   * @param {number} cy
+   * @param {number} cz
+   * @param {number} hx
+   * @param {number} hy
+   * @param {number} hz
+   * @param {RGB} tone
+   */
   const stone = (cx, cy, cz, hx, hy, hz, tone) => {
     b.cuboid([cx, cy, cz], [hx, 0, 0], [0, hy, 0], [0, 0, hz], {
       skip: ['-h'],
@@ -178,9 +240,14 @@ export function buildWall(L, b) {
   return [{ kind: 'box', min: [x0, -1, z0 - depth], max: [x1, groundAt(L, 0, z0 - 0.25) + BACK_WALL.height - 0.05, z0] }];
 }
 
+/** The colour t of the way from a to b. @type {(a: RGB, b: RGB, t: number) => RGB} */
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
-/** Rocks along the banks, a few out in the shallow, fast water upstream, and round the pond. */
+/**
+ * Rocks along the banks, a few out in the shallow, fast water upstream, and round the pond.
+ * @param {Layout} L
+ * @param {Builder} b what they are built into (scene.js's trim)
+ */
 export function buildRocks(L, b) {
   const r = rng(331);
   let placed = 0;
@@ -206,11 +273,16 @@ export function buildRocks(L, b) {
   }
 }
 
-/** Lily pads on the pond's still water, and a few of their flowers. */
+/**
+ * Lily pads on the pond's still water, and a few of their flowers.
+ * @param {Layout} L
+ * @param {Builder} b what they are built into (scene.js's trim)
+ */
 export function buildLilies(L, b) {
   const r = rng(341);
   const pads = ['#3f6a2a', '#4d7a31', '#5d8a36', '#466f2c'].map(lin);
   let placed = 0;
+  /** The pads so far: x, z and radius each. @type {[number, number, number][]} */
   const spots = [];
   for (let k = 0; k < 3000 && placed < 26; k++) {
     const x = -7 + r() * 6, z = -11.5 + r() * 6;
@@ -242,7 +314,12 @@ export function buildLilies(L, b) {
   }
 }
 
-/** Where the stream goes through a hedge: a rough gate of posts, rails and pales over the water. */
+/**
+ * Where the stream goes through a hedge: a rough gate of posts, rails and pales over the water.
+ * @param {Layout} L
+ * @param {Builder} b what they are built into (scene.js's trim)
+ * @param {HedgeRun[]} runs the hedges': a gate goes in the gap between a side's first two
+ */
 export function buildWaterGates(L, b, runs) {
   const r = rng(351);
   for (const side of [-1, 1]) {
@@ -263,7 +340,12 @@ export function buildWaterGates(L, b, runs) {
   }
 }
 
-/** The wall's and hedges' shadows (boxes; a hedge lets a little through). */
+/**
+ * The hedges' shadows: a box each run, which lets a little through.
+ * @param {Layout} L
+ * @param {HedgeRun[]} runs
+ * @returns {Occluder[]}
+ */
 export function hedgeShadows(L, runs) {
   return runs.map(({ inner, outer, z0, z1 }) => ({
     kind: 'box',
