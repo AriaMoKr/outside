@@ -27,7 +27,10 @@ export function gardenTogether({ scene, camera, renderer, hands, ground }) {
   return createTogether({ appId: APP_ID, page: PAGE_ID, camera, renderer, hands, avatars: { parent: scene, ground } });
 }
 
-/** What the garden says for a notice of the session (together.js: join, arrive, leave, wave), or null. */
+/**
+ * What the garden says for a notice of the session (together.js: join, arrive, leave, wave), or null.
+ * @param {{ kind: string, peer: { name?: string|null, page?: string|null } }} notice the layer's Notice, or one of a kind it adds later
+ */
 export function noticeText({ kind, peer }) {
   const name = peer.name || 'Someone';
   const here = !peer.page || peer.page === PAGE_ID;

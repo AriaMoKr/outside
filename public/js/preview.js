@@ -48,7 +48,7 @@ export function renderPreview(renderer, scene, camera, { hide = [], from, view =
     const out = document.createElement('canvas');
     out.width = view.width;
     out.height = view.height;
-    out.getContext('2d').drawImage(renderer.domElement, 0, 0);
+    /** @type {CanvasRenderingContext2D} */ (out.getContext('2d')).drawImage(renderer.domElement, 0, 0); // a new canvas's: never null
     return out;
   } finally {
     hide.forEach((o, i) => { o.visible = shown[i]; });

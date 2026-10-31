@@ -278,8 +278,8 @@ npm run types   # tsc's checks alone
 `allowJs`, `checkJs`, `noEmit`), against three.js's types and common's and the shared session's.
 Nothing is built: the page is served as it is, and the import map stays. What TypeScript's DOM
 library leaves out is in `types/globals.d.ts`. `strict` comes a file at a time:
-`tsconfig.strict.json` checks only the files that pass it (so far `lite.js`, `reading.js`,
-`remote.js` and `way.js`), and `npm test` runs it too. A file joins its `include` when a change
+`tsconfig.strict.json` checks only the files that pass it (so far `lite.js`, `preview.js`,
+`reading.js`, `remote.js`, `together.js` and `way.js`), and `npm test` runs it too. A file joins its `include` when a change
 makes it pass. `tools/` and `test/` come later.
 
 `public/` is the whole site: any static server can serve it once `npm install` has filled

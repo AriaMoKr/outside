@@ -6,5 +6,5 @@
   "compilerOptions": {
     "strict": true
   },
-  "include": ["public/js/lite.js", "public/js/reading.js", "public/js/remote.js", "public/js/way.js", "types/*.d.ts"]
+  "include": ["public/js/lite.js", "public/js/preview.js", "public/js/reading.js", "public/js/remote.js", "public/js/together.js", "public/js/way.js", "types/*.d.ts"]
 }
