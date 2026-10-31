@@ -10,16 +10,25 @@ import { FONT_STEPS, SECTION, paginate } from '../public/js/pages.js';
 import { firstWordBelow, partCount, partOf, partSections, renderPart, topBlock, wordStarts } from '../public/js/text-view.js';
 import { BOOK_SUBTITLE, BOOK_TITLE, COLOPHON, PIECES } from '../public/js/reading.js';
 
+/** @typedef {import('../public/js/pages.js').Measure} Measure */
+/** @typedef {import('../public/js/pages.js').TextItem} TextItem */
+
 const book = { title: BOOK_TITLE, subtitle: BOOK_SUBTITLE, pieces: PIECES, colophon: COLOPHON };
+/** @type {Measure} */
 const measure = (text, font) => text.length * font.size * 0.5 + (font.spacing ?? 0) * text.length;
+/** @param {string} s */
 const words = (s) => s.split(/\s+/).filter(Boolean);
 
-/** renderPart into a fresh container: the container, and the parts its links asked for. */
+/**
+ * renderPart into a fresh container: the container, and the parts its links asked for.
+ * @param {number} part
+ */
 function render(part) {
   const doc = fakeDocument();
   const box = doc.createElement('div');
+  /** @type {number[]} */
   const followed = [];
-  renderPart(doc, box, book, part, { onLink: (s) => followed.push(s) });
+  renderPart(/** @type {Document} */ (/** @type {unknown} */ (doc)), /** @type {Element} */ (/** @type {unknown} */ (box)), book, part, { onLink: (s) => followed.push(s) }); // the fakes stand in for the page's document and an element of it
   return { box, followed };
 }
 
@@ -76,18 +85,19 @@ test('every page\'s first words are where the view finds the page\'s place, at e
   for (const scale of FONT_STEPS) {
     for (const page of paginate(book, measure, { scale })) {
       const [s, b, w] = page.at;
-      const first = page.items.find((it) => !it.rule);
+      const first = /** @type {TextItem} */ (page.items.find((it) => !/** @type {{ rule?: true }} */ (it).rule)); // the first line: only a rule has rule, and every page has a line
       if (s === SECTION.title && b !== 0) continue; // the title page's heading is the view's own h1; its small print is left out
       const el = parts[partOf(s)].findAll((e) => e.getAttribute('data-s') === String(s) && e.getAttribute('data-b') === String(b))[0];
       assert.ok(el, `at ${scale}: no block for ${page.at}`);
       if (first.type !== 'body' && first.type !== 'small' && first.type !== 'bookSub') continue;
-      const [node, offset] = wordStarts(el)[w];
+      const [node, offset] = wordStarts(/** @type {Node} */ (/** @type {unknown} */ (el)))[w]; // the fake stands in for an element of the view
       assert.equal(node.data.slice(offset).split(/\s/)[0], first.text.split(' ')[0], `at ${scale}: ${page.at}`);
     }
   }
 });
 
 test('the view\'s rules are on its own class, tv-view: tv is TV mode\'s, on <html>, and no rule is on it alone', () => {
+  /** @param {string} path */
   const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
   assert.match(read('../public/js/text-view.js'), /el\.className = 'tv-view'/);
   assert.match(read('../public/js/main.js'), /document\.documentElement\.classList\.toggle\('tv', tv\)/);
@@ -105,6 +115,7 @@ test('the place at the top of the view: the first block reaching below it, and t
   assert.deepEqual(topBlock(rects, 2000), [2, 1, 0], 'past the end: the last');
   assert.deepEqual(topBlock([], 0), [SECTION.title, -1, 0]);
   // Ten words a line, lines 30 px: the first word whose line is below 95 is on the fourth line.
+  /** @param {number} i */
   const bottom = (i) => 30 * (Math.floor(i / 10) + 1);
   assert.equal(firstWordBelow(100, 95, bottom), 30);
   assert.equal(firstWordBelow(100, 0, bottom), 0);
