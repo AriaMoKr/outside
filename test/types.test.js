@@ -12,7 +12,15 @@ import { fileURLToPath } from 'node:url';
 
 const here = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** tsc on a project, failing with what it found. */
+/**
+ * What execFileSync throws: an Error with the run's result (spawnSync's), its output as text.
+ * @typedef {Error & import('node:child_process').SpawnSyncReturns<string>} ExecError
+ */
+
+/**
+ * tsc on a project, failing with what it found.
+ * @param {string} project its tsconfig
+ */
 function check(project) {
   let tsc;
   try {
@@ -23,7 +31,7 @@ function check(project) {
   try {
     execFileSync(process.execPath, [tsc, '-p', project, '--pretty', 'false'], { cwd: here, encoding: 'utf8' });
   } catch (e) {
-    assert.fail(`tsc -p ${project}\n${e.stdout}${e.stderr}`);
+    assert.fail(`tsc -p ${project}\n${/** @type {ExecError} */ (e).stdout}${/** @type {ExecError} */ (e).stderr}`); // execFileSync's
   }
 }
 

@@ -14,6 +14,13 @@ import { PUBLIC, serve } from './serve.mjs';
 import { launchChrome, sleep } from 'common/tools/chrome.mjs';
 import { HALLWAY_DOOR } from '../public/js/way.js';
 
+/**
+ * A view out of one of the hallway's doors, as its doorViews gives it: the door's id, the picture
+ * (a data: URL), and how to hang it (its entry in views.json, but the image's name).
+ * @typedef {{ id: string, jpeg: string, params: Omit<import('common/door.js').ViewParams, 'image'> }} DoorView
+ */
+
+/** @type {(name: string, fallback: string) => string} */
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(name);
   return i > 0 ? process.argv[i + 1] : fallback;
@@ -42,8 +49,9 @@ const server = await serve(copy);
 const chrome = await launchChrome();
 try {
   const page = await chrome.newPage();
-  await page.goto(`http://127.0.0.1:${server.address().port}/`, 1500);
+  await page.goto(`http://127.0.0.1:${/** @type {import('node:net').AddressInfo} */ (server.address()).port}/`, 1500); // serve's, listening on a port
   for (let i = 0; i < 100 && !(await page.evaluate('!!window.__hallway')); i++) await sleep(200);
+  /** @type {DoorView[]} */
   const views = await page.evaluate('window.__hallway.doorViews(0.88)');
   const mine = views.find((v) => v.id === HALLWAY_DOOR.id);
   if (!mine) throw new Error(`the hallway rendered no view for ${HALLWAY_DOOR.id} (doors: ${views.map((v) => v.id).join(', ')})`);

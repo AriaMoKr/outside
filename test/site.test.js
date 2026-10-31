@@ -14,7 +14,7 @@ const html = readFileSync(join(root, 'index.html'), 'utf8');
 
 test('the page uses relative URLs only, so it works under any path (GitHub Pages: /<repo>/)', () => {
   const urls = [...html.matchAll(/(?:href|src)="([^"]+)"/g)].map((m) => m[1]).filter((u) => !/^(https?:|data:)/.test(u));
-  const map = JSON.parse(html.match(/<script type="importmap">(.*?)<\/script>/s)[1]);
+  const map = JSON.parse(/** @type {RegExpMatchArray} */ (html.match(/<script type="importmap">(.*?)<\/script>/s))[1]); // the page has one
   urls.push(...Object.values(map.imports));
   for (const u of urls) assert.ok(!u.startsWith('/'), `root-relative URL ${u}`);
 });
@@ -24,7 +24,7 @@ test('the view and what is over it are the page\'s main landmark, and the card i
   assert.ok(main.length > 0, 'no <main>');
   assert.ok(main.includes('id="app"') && main.includes('id="view-overlay"'));
   assert.ok(!main.includes('id="overlay"'));
-  assert.equal(html.match(/<main\b/g).length, 1);
+  assert.equal(/** @type {RegExpMatchArray} */ (html.match(/<main\b/g)).length, 1); // the one above, at least
 });
 
 test('without JavaScript, the page still leads back to the hallway', () => {
@@ -42,7 +42,7 @@ test('every client module parses', () => {
 
 test('client modules import only three, the shared packages and each other', () => {
   const shared = /^(common|layersharedsession)\/[a-z-]+\.js$/; // not common/tools/…: those are Node's
-  const { imports } = JSON.parse(html.match(/<script type="importmap">(.*?)<\/script>/s)[1]);
+  const { imports } = JSON.parse(/** @type {RegExpMatchArray} */ (html.match(/<script type="importmap">(.*?)<\/script>/s))[1]); // the page has one
   const installed = existsSync(join(root, 'vendor'));
   for (const f of readdirSync(join(root, 'js'))) {
     if (!f.endsWith('.js')) continue;
@@ -59,7 +59,7 @@ test('client modules import only three, the shared packages and each other', () 
 });
 
 test('the import map maps what the page and the shared session load to their copies in vendor/', () => {
-  const { imports } = JSON.parse(html.match(/<script type="importmap">(.*?)<\/script>/s)[1]);
+  const { imports } = JSON.parse(/** @type {RegExpMatchArray} */ (html.match(/<script type="importmap">(.*?)<\/script>/s))[1]); // the page has one
   assert.deepEqual(Object.keys(imports).sort(), ['@noble/secp256k1', '@trystero-p2p/core', 'common/', 'layersharedsession/', 'three', 'trystero']);
   for (const url of Object.values(imports)) assert.match(url, /^\.\/vendor\//);
   if (!existsSync(join(root, 'vendor'))) return; // not installed yet
@@ -71,7 +71,7 @@ test('the hallway\'s door to here is a complete entry of its environments.js', (
   assert.match(e.id, /^[a-z0-9-]+$/);
   assert.ok(e.title && e.subtitle && e.sign);
   // The plaque beside it shows the page's own description, word for word (the hallway's README).
-  assert.equal(e.subtitle, html.match(/<meta name="description" content="([^"]*)">/)[1]);
+  assert.equal(e.subtitle, /** @type {RegExpMatchArray} */ (html.match(/<meta name="description" content="([^"]*)">/))[1]); // the page has one
   assert.equal(new URL(e.url).protocol, 'https:');
   assert.equal(new URL(e.preview).protocol, 'https:');
   assert.match(e.color, /^#[0-9a-f]{6}$/);
@@ -81,7 +81,13 @@ test('the hallway\'s door to here is a complete entry of its environments.js', (
   assert.ok(existsSync(join(root, e.preview.slice(e.url.length))), `${e.preview} is not in public/`);
 });
 
-/** A JPEG's width and height, from its start-of-frame marker. */
+/** @typedef {{ width: number, height: number }} Size a picture's, in pixels */
+
+/**
+ * A JPEG's width and height, from its start-of-frame marker.
+ * @param {string} file
+ * @returns {Size | null} null without one
+ */
 function jpegSize(file) {
   const b = readFileSync(file);
   for (let i = 2; i < b.length;) {
@@ -93,20 +99,21 @@ function jpegSize(file) {
 }
 
 test('the pictures either side of the door: the garden for the hallway, 2:1; the hallway for here, with how to hang it', () => {
-  const preview = jpegSize(join(root, 'hallway-preview.jpg'));
+  const preview = /** @type {Size} */ (jpegSize(join(root, 'hallway-preview.jpg'))); // a JPEG has one
   assert.equal(preview.width, 2 * preview.height);
   const views = JSON.parse(readFileSync(join(root, 'views', 'views.json'), 'utf8')).views;
   const v = viewParams(views[HALLWAY_DOOR.id]);
   assert.ok(v, 'views.json has a good entry for this door');
-  const size = jpegSize(join(root, 'views', v.image));
+  const size = /** @type {Size} */ (jpegSize(join(root, 'views', v.image))); // a JPEG has one
   assert.ok(Math.abs(size.width / size.height - v.aspect) < 0.01);
 });
 
 test('a shared link shows the garden: its address, and the hallway\'s picture of it at the size the page says', () => {
+  /** @type {(p: string) => string | undefined} */
   const meta = (p) => html.match(new RegExp(`<meta (?:property|name)="${p}" content="([^"]*)">`))?.[1];
   assert.equal(meta('og:url'), HALLWAY_DOOR.url);
   assert.equal(meta('og:image'), HALLWAY_DOOR.preview);
-  const size = jpegSize(join(root, HALLWAY_DOOR.preview.slice(HALLWAY_DOOR.url.length)));
+  const size = /** @type {Size} */ (jpegSize(join(root, HALLWAY_DOOR.preview.slice(HALLWAY_DOOR.url.length)))); // a JPEG has one
   assert.equal(Number(meta('og:image:width')), size.width);
   assert.equal(Number(meta('og:image:height')), size.height);
   for (const p of ['og:type', 'og:site_name', 'og:title', 'og:description', 'og:image:alt', 'twitter:card']) assert.ok(meta(p), `no ${p}`);

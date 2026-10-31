@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { PUBLIC, serve } from './serve.mjs';
 import { launchChrome, sleep } from 'common/tools/chrome.mjs';
 
+/** @type {(name: string, fallback: string) => string} */
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(name);
   return i > 0 ? process.argv[i + 1] : fallback;
@@ -19,7 +20,7 @@ const server = await serve(PUBLIC);
 const chrome = await launchChrome();
 try {
   const page = await chrome.newPage();
-  await page.goto(`http://127.0.0.1:${server.address().port}/`, 1000);
+  await page.goto(`http://127.0.0.1:${/** @type {import('node:net').AddressInfo} */ (server.address()).port}/`, 1000); // serve's, listening on a port
   for (let i = 0; i < 100 && !(await page.evaluate('!!window.__outside')); i++) await sleep(200);
   const { jpeg, params } = await page.evaluate('window.__outside.preview(0.9)');
   const bytes = Buffer.from(jpeg.slice(jpeg.indexOf(',') + 1), 'base64');
