@@ -1,0 +1,13 @@
+{
+  // tools/ and test/, which run in Node: strict from the start, and a file at a time as
+  // tsconfig.strict.json does public/js/, with Node's types (@types/node, of Node 22, the oldest
+  // engines allows) as well as tsconfig.json's DOM (the tests run public/js/'s modules, the text
+  // view's on a fake DOM). A file joins `include` when a change makes it pass; what it imports from
+  // public/js/ is checked strictly with it. test/types.test.js runs it too.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "types": ["node"]
+  },
+  "include": ["test/remote.test.js", "types/*.d.ts"]
+}

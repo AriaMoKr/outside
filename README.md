@@ -270,7 +270,7 @@ You need Node.js 22 or newer.
 ```bash
 npm install     # three.js, common (the door contract, the sky, the comfort settings, the book's Back, and the walking, doorway, fade and gamepad code the hallway shares), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/ by common's tools/vendor.mjs from vendor.json
 npm start       # http://localhost:8090/
-npm test        # node --test: the garden, the book's pages and reader, the text view, the way back, the session's words, the TV's remote and the lighter versions, the water, the page, and tsc's checks of public/js/
+npm test        # node --test: the garden, the book's pages and reader, the text view, the way back, the session's words, the TV's remote and the lighter versions, the water, the page, and tsc's checks of public/js/, tools/ and test/
 npm run types   # tsc's checks alone
 ```
 
@@ -283,7 +283,8 @@ library leaves out is in `types/globals.d.ts`. `strict` comes a file at a time:
 `overlay.js`, `pages.js`, `panel.js`, `plants.js`, `preview.js`, `reader.js`, `reading.js`,
 `remote.js`, `scene.js`, `text-view.js`, `textures.js`, `together.js`, `water.js` and `way.js`),
 and `npm test` runs it too. A file joins its `include` when a change makes it pass. `tools/` and
-`test/` come later.
+`test/`, which run in Node, have `tsconfig.node.json`: strict from the start, with Node's types
+(`@types/node`) as well, a file at a time as they pass (so far `test/remote.test.js`).
 
 `public/` is the whole site: any static server can serve it once `npm install` has filled
 `public/vendor/`. `?xr=emulate` installs Meta's IWER emulator (a virtual Quest 3). For a Quest over
