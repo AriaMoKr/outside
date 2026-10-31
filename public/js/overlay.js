@@ -13,8 +13,28 @@
 // book's words for a screen reader. On a TV (common's tv.js) the hint is the remote's, and there is
 // nothing to copy a link to: the invite link is shown in the card, to open on another device.
 
+/** @typedef {import('common/nav.js').Nav} Nav */
+/** @typedef {import('common/access.js').Access} Access */
+/** @typedef {import('./reader.js').ThemeName} ThemeName */
+/** @typedef {import('./pages.js').ReadingBlock} ReadingBlock */
+/** @typedef {'mouse' | 'touch' | 'gamepad' | 'tv'} HintKind what the hint is for: a mouse and keys, a touch screen, a gamepad, or a TV's remote */
+/**
+ * The element a tag names: one of HTML's (HTMLElementTagNameMap) as its own type, else HTMLElement.
+ * @template {string} K
+ * @typedef {K extends keyof HTMLElementTagNameMap ? HTMLElementTagNameMap[K] : HTMLElement} ElementOf
+ */
+
+/**
+ * A new element, `tag`, with `attrs` (its class, its style, or another attribute) and `children`
+ * (elements or text) in it.
+ * @template {string} K
+ * @param {K} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {...(Node | string)} children
+ * @returns {ElementOf<K>}
+ */
 function el(tag, attrs = {}, ...children) {
-  const e = document.createElement(tag);
+  const e = /** @type {ElementOf<K>} */ (document.createElement(tag)); // the element K names
   for (const [k, v] of Object.entries(attrs)) {
     if (k === 'class') e.className = v;
     else if (k === 'style') e.style.cssText = v;
@@ -43,6 +63,7 @@ const TV = {
   card: 'Up, down: from control to control · left, right: a choice · OK: choose · Back: walk again',
   cardReading: 'Up, down: from control to control · left, right: a choice · OK: choose · Back: read again',
 };
+/** The themes as the card names them. @type {Record<ThemeName, string>} */
 const THEME_NAMES = { paper: 'Paper', sepia: 'Sepia', night: 'Night' };
 
 export class Overlay {
@@ -54,9 +75,9 @@ export class Overlay {
    * @param {boolean} [o.tv] the TV app's page (common's tv.js tvMode)
    */
   constructor(way, { href = () => way.url, onLeave = () => {}, tv = false } = {}) {
-    this.root = document.getElementById('overlay');
+    this.root = /** @type {HTMLElement} */ (document.getElementById('overlay')); // index.html's
     this.tv = tv;
-    this.view = document.getElementById('view-overlay');
+    this.view = /** @type {HTMLElement} */ (document.getElementById('view-overlay')); // index.html's
     this.href = href;
     this.back = el('a', { class: 'way-back', href: href(), title: way.title }, way.label);
     this.back.addEventListener('click', () => onLeave());
@@ -87,7 +108,16 @@ export class Overlay {
     this.session = el('button', { class: 'chip', type: 'button' }, 'Start shared session');
     this.session.addEventListener('click', () => this.onSession());
     this.settingsToggle = el('button', { class: 'chip', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'settings' }, 'Settings');
+    /** @type {Map<string, HTMLInputElement>} */
     this.choices = new Map(); // 'move:smooth' → its radio button, 'vignette' → its checkbox
+    /**
+     * Radio buttons in a fieldset named `legend`, one for each [value, label] of `options`:
+     * choosing one calls `apply(key, value)`.
+     * @param {string} key
+     * @param {string} legend
+     * @param {[string, string][]} options
+     * @param {(key: string, value: string) => void} apply
+     */
     const choice = (key, legend, options, apply) => el('fieldset', {}, el('legend', {}, legend), ...options.map(([value, label]) => {
       const input = el('input', { type: 'radio', name: key, value });
       input.addEventListener('change', () => {
@@ -96,6 +126,11 @@ export class Overlay {
       this.choices.set(`${key}:${value}`, input);
       return el('label', {}, input, label);
     }));
+    /**
+     * A checkbox labelled `label` for the setting `key` (onAccess).
+     * @param {string} key
+     * @param {string} label
+     */
     const toggle = (key, label) => {
       const input = el('input', { type: 'checkbox', name: key });
       input.addEventListener('change', () => this.onAccess({ [key]: input.checked }));
@@ -106,6 +141,12 @@ export class Overlay {
     this.asText.addEventListener('change', () => this.onTextViewPref(this.asText.checked));
     // While the book is open: what its keys do (controls.js BOOK_KEYS), for a TV's remote, which has
     // no letters, and for whoever reaches the card rather than the 3D toolbar.
+    /**
+     * One of them: `label` its words (or sign's), `attrs` its attributes, `fn` what a press does.
+     * @param {string | Node[]} label
+     * @param {Record<string, string>} attrs
+     * @param {() => void} fn
+     */
     const tool = (label, attrs, fn) => {
       const b = el('button', { class: 'chip', type: 'button', ...attrs }, ...[label].flat());
       b.addEventListener('click', fn);
@@ -113,6 +154,7 @@ export class Overlay {
     };
     this.contents = tool('Contents', { 'aria-pressed': 'false', 'aria-keyshortcuts': 'C', title: 'The contents beside the pages (C)' }, () => this.onBook('contents'));
     // A− and A+ are signs, not words: their names are the words, kept out of sight.
+    /** @param {string} glyph @param {string} name */
     const sign = (glyph, name) => [el('span', { 'aria-hidden': 'true' }, glyph), el('span', { class: 'sr-only' }, name)];
     const smaller = tool(sign('A−', 'Smaller text'), { title: 'Smaller text (−)' }, () => this.onBook('font', -1));
     const larger = tool(sign('A+', 'Larger text'), { title: 'Larger text (+)' }, () => this.onBook('font', 1));
@@ -164,6 +206,7 @@ export class Overlay {
     this.bookText = el('div', { class: 'sr-only', 'aria-live': 'polite' });
     this.root.append(this.card);
     this.view.append(this.hint, this.buttons, this.dot, this.toasts, this.bookText);
+    /** @type {HintKind} */
     this._how = 'mouse';
     this._reading = false;
     this._inCard = false; // a TV's: the remote in the card (Menu), not walking
@@ -171,19 +214,27 @@ export class Overlay {
     addEventListener('resize', () => this._placeHint());
   }
 
-  /** @param {'mouse'|'touch'|'gamepad'|'tv'} how */
+  /** @param {HintKind} how */
   setHint(how) {
     this._how = how;
     this._showHint();
   }
 
-  /** On a TV: the remote in the card (Menu), or walking (or reading) again; the hint says what it does now. */
+  /**
+   * On a TV: the remote in the card (Menu), or walking (or reading) again; the hint says what it
+   * does now.
+   * @param {boolean} on
+   */
   setInCard(on) {
     this._inCard = on;
     if (this._how === 'tv') this._showHint();
   }
 
-  /** The text view open or closed: on a TV, its hint (how to read it with the remote), else the hint goes. */
+  /**
+   * The text view open or closed: on a TV, its hint (how to read it with the remote), else the
+   * hint goes.
+   * @param {boolean} on
+   */
   setTextView(on) {
     if (this._textView === on) return;
     this._textView = on;
@@ -194,6 +245,9 @@ export class Overlay {
   /**
    * What the open book shows now, for its controls in the card: the contents beside it or not, a
    * page at a time or two, the theme. Called each frame while reading: only a change touches them.
+   * @param {boolean} contents
+   * @param {boolean} single
+   * @param {ThemeName} theme
    */
   setBook(contents, single, theme) {
     const b = this._book;
@@ -207,6 +261,7 @@ export class Overlay {
    * again once it is down); Text view (by the buttons at the foot, but not on a TV) and the book's
    * keys in the card show; and, as in vrlbry, the card goes out of the book's way, coming back when
    * the keyboard goes into it (style.css).
+   * @param {boolean} on
    */
   setReading(on) {
     if (this._reading === on) return;
@@ -221,12 +276,16 @@ export class Overlay {
     else this.hideHint();
   }
 
-  /** "Open it as text", as it is now. */
+  /** "Open it as text", as it is now. @param {boolean} on */
   setTextViewPref(on) {
     this.asText.checked = on;
   }
 
-  /** Sitting on the bench, or not: the bench's button sits down, or gets up; on a TV, the hint says what the remote does now. */
+  /**
+   * Sitting on the bench, or not: the bench's button sits down, or gets up; on a TV, the hint says
+   * what the remote does now.
+   * @param {boolean} on
+   */
   setSeated(on) {
     if (this._seated === on) return;
     this._seated = on;
@@ -234,12 +293,21 @@ export class Overlay {
     if (this._how === 'tv') this._showHint();
   }
 
-  /** In a shared session (or paused in one, going through a door), or not: its button leaves, or starts one. */
+  /**
+   * In a shared session (or paused in one, going through a door), or not: its button leaves, or
+   * starts one.
+   * @param {boolean} on
+   */
   setSession(on) {
     this.session.textContent = on ? 'Leave shared session' : 'Start shared session';
   }
 
-  /** The settings as they are now: the VR movement choices (common/nav.js) and the accessibility settings (common/access.js). */
+  /**
+   * The settings as they are now: the VR movement choices (common/nav.js) and the accessibility
+   * settings (common/access.js).
+   * @param {Nav} nav
+   * @param {Access} access
+   */
   setChoices({ move, turn }, { motion, vignette, seated }) {
     const on = new Set([`move:${move}`, `turn:${turn}`, `motion:${motion}`]);
     if (vignette) on.add('vignette');
@@ -266,7 +334,7 @@ export class Overlay {
     const s = this.hint.style;
     s.left = s.bottom = s.maxWidth = '';
     let left = Infinity, top = Infinity;
-    for (const b of this.buttons.children) {
+    for (const b of /** @type {HTMLCollectionOf<HTMLButtonElement>} */ (this.buttons.children)) { // all buttons
       if (b.hidden) continue;
       const r = b.getBoundingClientRect();
       left = Math.min(left, r.left);
@@ -290,8 +358,11 @@ export class Overlay {
    * The pages open, for a screen reader: a region named `title` (the book's), its heading `label`
    * (where one is: 'Pages 4 and 5'), then `blocks`, their words, the book's headings under it
    * (pages.js readingText). Each call replaces the last, and is announced.
+   * @param {string} title
+   * @param {{ label: string, blocks: ReadingBlock[] }} open
    */
   showBookText(title, { label, blocks }) {
+    /** @param {ReadingBlock} b */
     const block = (b) => {
       if (b.kind === 'heading') return el(`h${b.level}`, {}, b.text);
       if (b.kind === 'list') return el('ul', {}, ...b.items.map((item) => el('li', {}, item)));
@@ -311,13 +382,18 @@ export class Overlay {
     this.back.setAttribute('href', this.href());
   }
 
+  /** The Enter VR button shown, a press calling `onClick`. @param {() => void} onClick */
   showVR(onClick) {
     this.vr.hidden = false;
     this._placeHint();
     this.vr.addEventListener('click', onClick);
   }
 
-  /** The shared session's invite link (together.js), or '' when not in one: hides the button. On a TV, the link to open elsewhere. */
+  /**
+   * The shared session's invite link (together.js), or '' when not in one: hides the button. On a
+   * TV, the link to open elsewhere.
+   * @param {string} link
+   */
   setInvite(link) {
     this._inviteLink = link;
     if (this.inviteText) {
@@ -329,7 +405,10 @@ export class Overlay {
     this._placeHint();
   }
 
-  /** In a shared session (together.js active), or not: the Wave button shows while one is. */
+  /**
+   * In a shared session (together.js active), or not: the Wave button shows while one is.
+   * @param {boolean} active
+   */
   setTogether(active) {
     this.wave.hidden = !active;
     this._placeHint();
@@ -346,31 +425,43 @@ export class Overlay {
     }
   }
 
+  /** The Fullscreen button shown, a press calling `onClick`. @param {() => void} onClick */
   showFullscreen(onClick) {
     this.fullscreen.hidden = false;
     this._placeHint();
     this.fullscreen.addEventListener('click', onClick);
   }
 
+  /** In fullscreen, or not: what its button says, and how it looks. @param {boolean} on */
   setFullscreen(on) {
     this.fullscreen.textContent = on ? '✕ Exit fullscreen' : 'Fullscreen';
     this._placeHint();
     this.fullscreen.classList.toggle('on', on);
   }
 
-  /** The dot in the middle of the view that a gamepad (or a TV's remote) aims with; larger and filled on something A (or OK) would use. */
+  /**
+   * The dot in the middle of the view that a gamepad (or a TV's remote) aims with; larger and
+   * filled on something A (or OK) would use.
+   * @param {boolean} on
+   * @param {boolean} [hover]
+   */
   setAim(on, hover = false) {
     if (this.dot.hidden !== !on) this.dot.hidden = !on;
     if (this.dot.classList.contains('hover') !== hover) this.dot.classList.toggle('hover', hover);
   }
 
+  /**
+   * A short message, said politely, for `seconds`.
+   * @param {string} text
+   * @param {number} [seconds]
+   */
   toast(text, seconds = 3.5) {
     const t = el('div', { class: 'toast' }, text);
     this.toasts.append(t);
     setTimeout(() => t.remove(), seconds * 1000);
   }
 
-  /** No 3D view: the way back is all there is. */
+  /** No 3D view: the way back is all there is, and `message` says why. @param {string} message */
   noWebGL(message) {
     this.card.classList.add('alone');
     this.inGarden.remove();
