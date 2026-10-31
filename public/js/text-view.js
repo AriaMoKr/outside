@@ -407,7 +407,11 @@ export class TextView {
       renderPart(this.doc, body, this.text, part, {
         onLink: (section) => {
           this._sync();
+          // The piece's start, as _goTo goes there: the spread it opens may begin with the end of
+          // the piece before (its left page), which is the 3D book's place.
+          this._aim = [section, -1, 0];
           this.book.followLink(section); // Back returns here
+          this._aim = null;
         },
       });
       this.$('.tv-title').textContent = this.text.title;
