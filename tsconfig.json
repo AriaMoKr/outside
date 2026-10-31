@@ -1,7 +1,8 @@
 {
   // The page's modules checked as they are served, from their JSDoc: nothing is built or emitted,
   // and the import map stays. test/types.test.js runs it (npm test, so the Pages workflow too);
-  // npm run types runs it alone. Not strict yet: that comes a file at a time.
+  // npm run types runs it alone, and then tsconfig.strict.json. Not strict: that comes a file at
+  // a time, in tsconfig.strict.json.
   "compilerOptions": {
     "allowJs": true,
     "checkJs": true,

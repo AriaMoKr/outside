@@ -1,6 +1,7 @@
 // The page's modules type-checked as they are served (tsconfig.json: from their JSDoc, nothing
-// built), as the template's test/types.test.js runs tsc: a failure shows tsc's own output.
-// TypeScript is a devDependency here, so not finding it fails rather than skips.
+// built), and the files that pass `strict` checked with it (tsconfig.strict.json), as the
+// template's test/types.test.js runs tsc: a failure shows tsc's own output. TypeScript is a
+// devDependency here, so not finding it fails rather than skips.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -26,3 +27,5 @@ function check(project) {
 }
 
 test('public/js/ type-checks: tsc -p tsconfig.json finds nothing', () => check('tsconfig.json'));
+
+test('the files that pass strict still do: tsc -p tsconfig.strict.json finds nothing', () => check('tsconfig.strict.json'));

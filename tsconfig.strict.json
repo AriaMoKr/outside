@@ -1,0 +1,10 @@
+{
+  // The next step, as in the template: the files that pass `strict`, a file at a time
+  // (tsconfig.json checks them all without it). A file joins `include` when a change makes it
+  // pass; what it imports is checked strictly with it. test/types.test.js runs it too.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "include": ["public/js/lite.js", "public/js/reading.js", "public/js/remote.js", "public/js/way.js", "types/*.d.ts"]
+}
