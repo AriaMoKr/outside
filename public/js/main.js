@@ -465,10 +465,10 @@ function useMiddle() {
  */
 function stepBack() {
   const s = backStep({
-    textView: textView.isOpen, toc: textView.contentsOpen, book: book.isOpen, contents: book.contents.visible,
+    textView: textView.isOpen, toc: textView.tocOpen, book: book.isOpen, contents: book.contents.visible,
     trail: book.trail.length > 0, entry: bookEntry && backHistory.level > 0, seated: !!controls.seated,
   });
-  if (s === 'toc') textView.closeContents();
+  if (s === 'toc') textView.closeToc();
   else if (s === 'text') textView.close();
   else if (s === 'contents') book.toggleContents(false);
   else if (s === 'link') book.goBack();

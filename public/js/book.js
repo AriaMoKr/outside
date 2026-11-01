@@ -18,7 +18,7 @@ import {
   spreadCount, spreadOf, spreadPages, typeAt,
 } from './pages.js';
 import { READ, THEMES, THEME_ORDER, fontStep, pageViewSetting, singlePage } from './reader.js';
-import { Panel, UI } from './canvas-panel.js';
+import { Panel, UI } from 'common/panel.js';
 import { GOLD, SERIF, canvas } from './textures.js';
 
 /** @typedef {import('./pages.js').At} At */
@@ -267,7 +267,7 @@ function bookHalf(dir, coverMaterial, pageMaterial) {
 /**
  * What a ray meets on the open book (pick's): one of its panels ('bookui') or a page ('page'), the
  * other kind's fields left null, 0 or -1. controls.js's GardenHit has them all.
- * @typedef {{ t: number, kind: string, side: number, panel: Panel | null, el: import('./canvas-panel.js').Control | null, u: number, v: number, page: number, link: Link | null }} BookHit
+ * @typedef {{ t: number, kind: string, side: number, panel: Panel | null, el: import('common/panel.js').Control | null, u: number, v: number, page: number, link: Link | null }} BookHit
  */
 
 export class Book {
@@ -329,9 +329,9 @@ export class Book {
     this._saveIn = 0; // seconds until the settings are stored (the size and distance change every frame while a stick is held)
     /** The controller moving it. @type {THREE.Object3D | null} */
     this._grabbed = null;
-    /** The words the last change of text size kept to, and the place it showed. @type {{ at: At, shown: At | null } | null} */
+    /** The words the last change of text size kept to (or the text view's place), and the place it showed. @type {{ at: At, shown: At | null } | null} */
     this._sized = null;
-    /** The page the last change to one page or two kept to, and the place it showed. @type {{ i: number, shown: At | null } | null} */
+    /** The page the last change to one page or two kept to (or the one with the words a size kept to, a piece's first, the text view's place), and the place it showed. @type {{ i: number, shown: At | null } | null} */
     this._paged = null;
     this._grabOffset = new THREE.Matrix4();
     /** The eyes _fit projects the book's corners as, made when first needed. @type {THREE.PerspectiveCamera | null} */
@@ -389,7 +389,7 @@ export class Book {
 
     this.toolbar = new Panel({ width: TOOLBAR.width, height: TOOLBAR.height, px: TOOLBAR.px, anisotropy });
     this.toolbar.mesh.name = 'book (toolbar)';
-    this.contents = new Panel({ width: CONTENTS.width, height: CONTENTS.height, px: CONTENTS.px, anisotropy });
+    this.contents = new Panel({ width: CONTENTS.width, height: CONTENTS.height, px: CONTENTS.px, anisotropy, ring: 2 });
     this.contents.mesh.name = 'book (contents)';
     this.contents.visible = false;
     this.group.add(this.toolbar.mesh, this.contents.mesh);
@@ -470,7 +470,7 @@ export class Book {
   /** The keys, in the contents (↑ ↓): the entry marked moves; whether the contents is open to take them. @param {number} dir */
   moveContents(dir) {
     if (!this.contents.visible) return false;
-    const list = /** @type {import('./canvas-panel.js').ListElement} */ (this.contents.get('list')); // _fillContents's
+    const list = /** @type {import('common/panel.js').ListElement} */ (this.contents.get('list')); // _fillContents's
     const n = list.items.length;
     const from = Number.isInteger(list.hoverRow) ? /** @type {number} */ (list.hoverRow) : list.items.findIndex((it) => it.active); // the row marked (an integer), else the one being read
     list.hoverRow = clamp((from < 0 ? (dir > 0 ? -1 : n) : from) + dir, 0, n - 1);
@@ -482,7 +482,7 @@ export class Book {
   /** Enter, in the contents: goes to the entry marked; whether there was one. */
   chooseContents() {
     if (!this.contents.visible) return false;
-    const list = /** @type {import('./canvas-panel.js').ListElement} */ (this.contents.get('list')); // _fillContents's
+    const list = /** @type {import('common/panel.js').ListElement} */ (this.contents.get('list')); // _fillContents's
     const it = Number.isInteger(list.hoverRow) ? list.items[/** @type {number} */ (list.hoverRow)] : null; // the row marked (an integer)
     if (!it) return false;
     it.onClick?.(); // as the panel's click calls it
@@ -878,8 +878,10 @@ export class Book {
     this._finishTurn();
     this._forget();
     this._layout();
-    this._showAt(pageAt(this.pages, at));
+    const i = pageAt(this.pages, at);
+    this._showAt(i);
     this._sized = { at, shown: this.place };
+    this._paged = { i, shown: this.place }; // one page or two after it keeps to the page with those words
   }
 
   /** A theme by name (paper, sepia or night): the pages painted again, the text and its place as they were. @param {string} name */
@@ -915,7 +917,8 @@ export class Book {
   /**
    * Shows it a page at a time (single) or two, at the page being read; on a screen, where that
    * fits. Back and forth without a turn, it keeps to the page it started from (two pages are read
-   * from the left one).
+   * from the left one, unless the words a size kept to, a piece a link went to or the text view's
+   * place are on the right).
    * @param {boolean} single
    */
   setSingle(single) {
@@ -982,7 +985,9 @@ export class Book {
     if (!this.isOpen) return;
     this.toggleContents(false);
     const i = sectionStart(this.pages, section);
-    if (i >= 0) this._jumpTo(i);
+    if (i < 0) return;
+    this._jumpTo(i);
+    this._paged = { i, shown: this.place }; // its first page is the one read, which one page or two keeps to
   }
 
   /** A contents entry on the page: there, where one was going on the trail, for Back. @param {number} section */
@@ -1046,16 +1051,21 @@ export class Book {
 
   /**
    * To the page of a place (the text view's): with a turn, or at once (inPlace: the text view
-   * covers the book), unless the pages open show it already. Whether it moved.
+   * covers the book), unless the pages open show it already. Whether it moved. Either way it is the
+   * place read now: a change of size keeps to its words, and one page or two to its page (a window
+   * narrowed shows that page, the right one of two too, so the text view stays at its place).
    * @param {At} at
    * @param {{ inPlace?: boolean }} [o]
    */
   jumpToPlace(at, { inPlace = false } = {}) {
-    if (!this.isOpen || this.showsPlace(at)) return false;
+    if (!this.isOpen) return false;
     const i = pageAt(this.pages, at);
-    if (inPlace) this._showAt(i);
-    else this._jumpTo(i);
-    return true;
+    const moved = !this.showsPlace(at);
+    if (moved && inPlace) this._showAt(i);
+    else if (moved) this._jumpTo(i);
+    this._sized = { at, shown: this.place };
+    this._paged = { i, shown: this.place };
+    return moved;
   }
 
   // ── Pointing at it ─────────────────────────────────────────────────────────

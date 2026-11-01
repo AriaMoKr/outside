@@ -87,9 +87,11 @@ left it.
 a piece, or the sources) as an ordinary page of text over the garden, as vrlbry's does: for a
 screen reader, the keyboard, the browser's zoom or a small phone. Its toolbar has the parts before
 and after, the contents, the text size and theme, a slider for where you are, Back, and **Put the
-book down**, and its contents' links work as in the book. It keeps your place with the 3D book, to
-the word: close it (T, Esc or **Close**) and the book is open where you were reading. **Open it as
-text**, in Settings, opens the book this way every time.
+book down**, and its contents' links work as in the book. On a short screen (a phone held
+sideways) the toolbar slides away as you read on, and comes back when you scroll back or Tab to it.
+It keeps your place with the 3D book, to the word, as the window changes too: close it (T, Esc or
+**Close**) and the book is open where you were reading. **Open it as text**, in Settings, opens the
+book this way every time.
 
 On a screen, the card at the top left has the garden's 3D choices as buttons too, for a keyboard
 or a screen reader: **Sit on the bench** (or **Get up**), **Read the book** (from anywhere: you
@@ -268,7 +270,7 @@ card shows it). The door back carries the room into the hallway. In the hallway,
 You need Node.js 22 or newer.
 
 ```bash
-npm install     # three.js, common (the door contract, the sky, the comfort settings, the book's Back, and the walking, doorway, fade and gamepad code the hallway shares), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/ by common's tools/vendor.mjs from vendor.json
+npm install     # three.js, common (the door contract, the sky, the comfort settings, the book's Back, its text view and panels, and the walking, doorway, fade and gamepad code the hallway shares), the shared-session layer and Trystero (and IWER, for emulating a headset), copied into public/vendor/ by common's tools/vendor.mjs from vendor.json
 npm start       # http://localhost:8090/
 npm test        # node --test: the garden, the book's pages and reader, the text view, the way back, the session's words, the TV's remote and the lighter versions, the water, the page, and tsc's checks of public/js/, tools/ and test/
 npm run types   # tsc's checks alone
@@ -279,8 +281,7 @@ npm run types   # tsc's checks alone
 session's. Nothing is built: the page is served as it is, and the import map stays. What
 TypeScript's DOM library leaves out is in `types/globals.d.ts`. `strict` came a file at a time,
 until every file passed it. `tools/` and `test/`, which run in Node, have `tsconfig.node.json`:
-the same check with Node's types (`@types/node`) as well (`types/node/` has what `tools/` uses of
-common's tools, which come with no types).
+the same check with Node's types (`@types/node`) as well, and common's tools come with their own.
 
 `public/` is the whole site: any static server can serve it once `npm install` has filled
 `public/vendor/`. `?xr=emulate` installs Meta's IWER emulator (a virtual Quest 3). For a Quest over

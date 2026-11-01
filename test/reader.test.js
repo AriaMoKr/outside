@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { TEXT_VIEW_CSS } from 'common/text-view.js';
 import { FONT_STEPS } from '../public/js/pages.js';
 import { READ, THEMES, THEME_ORDER, fontStep, pageViewSetting, readerSettings, singlePage } from '../public/js/reader.js';
 
@@ -38,12 +39,13 @@ test('one page or two: upright screens one, headsets and wider screens two, unle
   assert.equal(pageViewSetting(false, true), 'spread');
 });
 
-test('the themes are vrlbry\'s, and the text view (style.css) has the same colours', () => {
+test('the themes are vrlbry\'s, and the text view (common\'s TEXT_VIEW_CSS) has the same colours', () => {
   assert.deepEqual(THEME_ORDER, ['paper', 'sepia', 'night']);
   assert.deepEqual(Object.keys(THEMES), THEME_ORDER);
-  const css = readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
+  const style = readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(style, /--tv-(paper|ink|link|rule):/, 'the shell\'s alone: style.css sets none over them');
   for (const name of THEME_ORDER) {
-    const rule = name === 'paper' ? /** @type {RegExpMatchArray} */ (css.match(/\.tv-view \{([^}]*)\}/))[1] : /** @type {RegExpMatchArray} */ (css.match(new RegExp(`\\.tv-view\\[data-theme="${name}"\\] \\{([^}]*)\\}`)))[1]; // style.css has a rule for each
+    const rule = name === 'paper' ? /** @type {RegExpMatchArray} */ (TEXT_VIEW_CSS.match(/\.tv-view \{([^}]*)\}/))[1] : /** @type {RegExpMatchArray} */ (TEXT_VIEW_CSS.match(new RegExp(`\\.tv-view\\[data-theme="${name}"\\] \\{([^}]*)\\}`)))[1]; // the shell has a rule for each
     /** @type {(k: string) => string} */
     const v = (k) => /** @type {RegExpMatchArray} */ (rule.match(new RegExp(`--tv-${k}: (#[0-9a-f]{6})`)))[1]; // and each colour in it
     const t = THEMES[name];

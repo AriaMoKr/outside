@@ -1,10 +1,11 @@
-// The text view (public/js/text-view.js, vrlbry's): each part of the book as DOM nodes (headings,
-// author and source, paragraphs, stanzas, the contents as links), the place at the top of the
-// view, and the places shared with the 3D book: every page's first words are where the view finds
-// them, at every text size. Its class is its own, tv-view, not TV mode's tv.
+// The text view (public/js/text-view.js, on common's shell): each part of the book as DOM nodes
+// (headings, author and source, paragraphs, stanzas, the contents as links), the place at the top
+// of the view, and the places shared with the 3D book: every page's first words are where the view
+// finds them, at every text size. Its class is the shell's own, tv-view, not TV mode's tv.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { TEXT_VIEW_CSS } from 'common/text-view.js';
 import { fakeDocument, inner } from './helpers/fake-dom.js';
 import { FONT_STEPS, SECTION, paginate } from '../public/js/pages.js';
 import { firstWordBelow, partCount, partOf, partSections, renderPart, topBlock, wordStarts } from '../public/js/text-view.js';
@@ -102,10 +103,10 @@ test('every page\'s first words are where the view finds the page\'s place, at e
 test('the view\'s rules are on its own class, tv-view: tv is TV mode\'s, on <html>, and no rule is on it alone', () => {
   /** @param {string} path */
   const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
-  assert.match(read('../public/js/text-view.js'), /el\.className = 'tv-view'/);
+  assert.match(read(import.meta.resolve('common/text-view.js')), /el\.className = 'tv-view'/, 'the view is common\'s shell\'s');
   assert.match(read('../public/js/main.js'), /document\.documentElement\.classList\.toggle\('tv', tv\)/);
-  // Each use of the class tv (not tv-…) in the page's style, comments aside, and what it is on.
-  const css = read('../public/css/style.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  // Each use of the class tv (not tv-…) in the page's style and the shell's, comments aside, and what it is on.
+  const css = `${read('../public/css/style.css')}\n${TEXT_VIEW_CSS}`.replace(/\/\*[\s\S]*?\*\//g, '');
   const on = [...css.matchAll(/([\w-]*)\.tv(?![\w-])/g)].map((m) => m[1]);
   assert.ok(on.length > 0, 'the 10-foot view has its rules');
   assert.deepEqual([...new Set(on)], ['html'], 'a rule on .tv alone reaches the whole TV page, as the text view\'s did');
